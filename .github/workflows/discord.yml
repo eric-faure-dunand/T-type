@@ -1,0 +1,36 @@
+name: Discord review notification
+
+on:
+  pull_request:
+    types: [review_requested]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify reviewer on Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_MAP: ${{ secrets.DISCORD_MAP }}
+          REVIEWER: ${{ github.event.requested_reviewer.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REQUESTER: ${{ github.actor }}
+        run: |
+          DISCORD_ID=$(echo "$DISCORD_MAP" | python3 -c "
+          import json, sys, os
+          m = json.load(sys.stdin)
+          print(m.get(os.environ['REVIEWER'], ''))
+          ")
+
+          if [ -n "$DISCORD_ID" ]; then
+            MENTION="<@${DISCORD_ID}>"
+          else
+            exit 0
+          fi
+
+          curl -s -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" \
+            -d "{
+              \"content\": \"${MENTION} tu as une PR à review !\n**#${PR_NUMBER} - ${PR_TITLE}**\n${PR_URL}\nDemandé par **${REQUESTER}**\"
+            }"
