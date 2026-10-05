@@ -2,7 +2,7 @@ name: Mirror to main repo
 
 on:
   pull_request:
-    branches: [main]
+    branches: [prod]
     types: [closed]
 
 jobs:
