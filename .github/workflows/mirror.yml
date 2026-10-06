@@ -1,0 +1,45 @@
+name: Mirror to main repo
+
+on:
+  pull_request:
+    branches: [prod]
+    types: [closed]
+
+jobs:
+  mirror:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Mirror to main repo
+        env:
+          ACTOR: ${{ github.actor }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          git clone git@github.com:EpitechPGE3-2026/G-ING-500-NCE-5-1-rtype-1.git /tmp/main-repo
+
+          cd /tmp/main-repo
+          git config user.email "${ACTOR}@users.noreply.github.com"
+          git config user.name "${ACTOR}"
+
+          rsync -a --delete \
+            --exclude='.git' \
+            $GITHUB_WORKSPACE/ . || rsync_exit=$?
+          if [ "${rsync_exit:-0}" -ne 0 ] && [ "${rsync_exit:-0}" -ne 24 ]; then
+            exit $rsync_exit
+          fi
+
+          git add .
+          git commit -m "mirror(Server): #${PR_NUMBER} - ${PR_TITLE}" || echo "Nothing to commit"
+          git push origin main
