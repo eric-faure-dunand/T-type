@@ -2,6 +2,7 @@
 #ifndef PRINTER_HPP
     #define PRINTER_HPP
     #include <iostream>
+    #include <cstdint>
 
 namespace Color {
     constexpr const char* BLACK   = "\033[30m";
@@ -52,7 +53,7 @@ namespace Color {
 }
 
 class Printer {
-    std::size_t LineWrite = 0;
+    std::uint32_t LineWrite = 0;
 public:
     Printer() = default;
     ~Printer() = default;
