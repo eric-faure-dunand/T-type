@@ -3,16 +3,16 @@
 namespace r_type {
 
 
-int ServerArgs::TestPort(std::string port) {
+int ServerArgs::TestPort(std::string arg_port) {
     int nb = 0;
 
     try {
-        nb = std::stoi(port);
+        nb = std::stoi(arg_port);
     } catch (const std::exception&) {
-        throw Error(port + " : Not a valid port.");
+        throw Error(arg_port + " : Not a valid arg_port.");
     }
-    if (nb == 0 || std::to_string(std::abs(nb)).size() != port.size() || nb > 65535)
-        throw Error(port + " : Not a valid port.");
+    if (nb == 0 || std::to_string(std::abs(nb)).size() != arg_port.size() || nb > 65535)
+        throw Error(arg_port + " : Not a valid arg_port.");
     return nb;
 }
 
