@@ -11,8 +11,8 @@ This document specifies which game data crosses the client/server boundary. It d
 | Network identity | `entity_id: uint32` | Server → client | On spawn, update and destruction | `ENTITY_SPAWN`, `ENTITY_UPDATE`, `ENTITY_DESTROY` |
 | Entity kind / rendering hint | `entity_kind: uint8` | Server → client | On spawn and initial sync | `ENTITY_SPAWN` |
 | Position / Transform | `x: int32`, `y: int32` (absolute world coordinates) | Server → client | Target **20 Hz** for active moving entities; initial state on join | `ENTITY_UPDATE`, `ENTITY_SPAWN` |
-| Controlled entity association | `controlled_entity_id: uint32` | Server → owning client | On connection; future reassignment requires a new protocol message | `CONNECT_ACCEPT` |
-| Input intention | `session_id: uint32`, `entity_id: uint32`, `input_flags: uint8` | Client → server | Target **30 Hz max**, and on input changes | `PLAYER_INPUT` |
+| Controlled entity association | `controlled_entity_id: uint32` | Server → owning client | Not assigned on connection; to be defined with room creation / join | — |
+| Input intention | `entity_id: uint32`, `input_flags: uint8` | Client → server | Target **30 Hz max**, and on input changes | `PLAYER_INPUT` |
 | Entity existence | `entity_id: uint32` | Server → client | On creation and destruction | `ENTITY_SPAWN`, `ENTITY_DESTROY` |
 | Initial entity set | `entity_count: uint32`, then one spawn per entity | Server → joining client | Once per initial sync/retry | `INITIAL_STATE_BEGIN`, `ENTITY_SPAWN`, `INITIAL_STATE_END` |
 
@@ -28,7 +28,7 @@ This document specifies which game data crosses the client/server boundary. It d
 
 ## Ownership and validation
 
-A session ID and an entity ID are different. A player initially controls a ship entity, but the network model allows the server to authorize control of another entity type later. The server must verify the source endpoint/session and allowed entity before processing input. The client cannot directly assign position, health, or entity creation/destruction.
+A player initially controls a ship entity, but the network model allows the server to authorize control of another entity type later. The server must verify that the sender is allowed to control the entity before processing input. The client cannot directly assign position, health, or entity creation/destruction.
 
 ## Synchronization policy
 
