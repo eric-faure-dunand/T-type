@@ -9,10 +9,6 @@ foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${CMAKE_SOURCE_DIR}")
 endforeach()
 
-## server
-
-project(r-type_server CXX)
-
 ## dependencies
 
 include(cmake/CPM.cmake)
@@ -24,13 +20,23 @@ CPMAddPackage(
     DOWNLOAD_ONLY YES
 )
 
-if(asio_ADDED)
+set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include")
+if(NOT EXISTS "${ASIO_INCLUDE_DIR}/asio.hpp")
+    message(FATAL_ERROR "asio introuvable dans: ${ASIO_INCLUDE_DIR} (asio_SOURCE_DIR='${asio_SOURCE_DIR}')")
+endif()
+message(STATUS "asio include: ${ASIO_INCLUDE_DIR}")
+
+if(NOT TARGET asio)
     find_package(Threads REQUIRED)
     add_library(asio INTERFACE)
-    target_include_directories(asio SYSTEM INTERFACE ${asio_SOURCE_DIR}/asio/include)
+    target_include_directories(asio SYSTEM INTERFACE "${ASIO_INCLUDE_DIR}")
     target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED)
     target_link_libraries(asio INTERFACE Threads::Threads)
 endif()
+
+## server
+
+project(r-type_server CXX)
 
 file(GLOB_RECURSE PROJECT_SRCS CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/project/src/server/*.cpp
