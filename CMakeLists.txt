@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-set(CMAKE_CXX_STANDARD 20)              # adapte selon ton projet
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}")
@@ -13,6 +13,25 @@ endforeach()
 
 project(r-type_server CXX)
 
+## dependencies
+
+include(cmake/CPM.cmake)
+
+CPMAddPackage(
+    NAME asio
+    GITHUB_REPOSITORY chriskohlhoff/asio
+    GIT_TAG asio-1-38-2
+    DOWNLOAD_ONLY YES
+)
+
+if(asio_ADDED)
+    find_package(Threads REQUIRED)
+    add_library(asio INTERFACE)
+    target_include_directories(asio SYSTEM INTERFACE ${asio_SOURCE_DIR}/asio/include)
+    target_compile_definitions(asio INTERFACE ASIO_STANDALONE ASIO_NO_DEPRECATED)
+    target_link_libraries(asio INTERFACE Threads::Threads)
+endif()
+
 file(GLOB_RECURSE PROJECT_SRCS CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/project/src/server/*.cpp
     ${CMAKE_SOURCE_DIR}/project/src/shared/*.cpp
@@ -24,10 +43,13 @@ target_include_directories(r-type_server
     PUBLIC
         project/include/server
         project/include/server/Security
+        project/include/server/Core
         project/include/shared/Error
         project/include/shared/Network
         project/include/shared/Printer
 )
+
+target_link_libraries(r-type_server PRIVATE asio)
 
 if(MSVC)
     target_compile_options(r-type_server PRIVATE /W4 /WX /permissive-)
