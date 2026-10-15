@@ -3,6 +3,7 @@
 
     #include <cstdint>
 
+    #include "sig.hpp"
     #include "network.hpp"
 
 namespace r_type {
