@@ -1,5 +1,6 @@
 #include "sig.hpp"
 
-void sigint(__attribute__((unused))int sig) {
+void sigint(int sig) {
+    (void)sig;
     SERVER_RUN = false;
 }
