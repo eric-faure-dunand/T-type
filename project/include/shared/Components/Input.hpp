@@ -3,7 +3,6 @@
 
 namespace r_type {
 
-// Rempli par le client (clavier) ou par le serveur (paquet reçu)
 struct Input {
     bool up = false;
     bool down = false;
