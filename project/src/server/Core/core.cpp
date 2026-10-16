@@ -7,7 +7,7 @@ Core::Core(std::uint16_t port): _socket(Role::Server) {
 }
 
 void Core::Run() {
-    while (true)
+    while (SERVER_RUN)
         _socket.Poll();
 }
 
