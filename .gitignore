@@ -1,2 +1,4 @@
 # plugins
 .obsidian/
+build/
+r-type_server

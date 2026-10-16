@@ -2,35 +2,115 @@ name: Discord review notification
 
 on:
   pull_request:
-    types: [review_requested]
+    types: [review_requested, review_request_removed, closed]
+  pull_request_review:
+    types: [submitted]
+
+# Évite que deux événements de la même PR modifient l'état en même temps
+concurrency:
+  group: discord-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  pull-requests: write
+  issues: write
 
 jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
-      - name: Notify reviewer on Discord
+      - name: Notify on Discord
+        uses: actions/github-script@v7
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_MAP: ${{ secrets.DISCORD_MAP }}
-          REVIEWER: ${{ github.event.requested_reviewer.login }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REQUESTER: ${{ github.actor }}
-        run: |
-          DISCORD_ID=$(echo "$DISCORD_MAP" | python3 -c "
-          import json, sys, os
-          m = json.load(sys.stdin)
-          print(m.get(os.environ['REVIEWER'], ''))
-          ")
+        with:
+          script: |
+            const MARKER = 'discord-pr-state';
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const issue_number = pr.number;
+            const map = JSON.parse(process.env.DISCORD_MAP || '{}');
+            const mention = (login) => map[login] ? `<@${map[login]}>` : null;
+            const prInfo = `**#${pr.number} - ${pr.title}**\n${pr.html_url}`;
 
-          if [ -n "$DISCORD_ID" ]; then
-            MENTION="<@${DISCORD_ID}>"
-          else
-            exit 0
-          fi
+            // ---------- Discord ----------
+            async function send(content) {
+              const r = await fetch(`${process.env.DISCORD_WEBHOOK}?wait=true`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, allowed_mentions: { parse: ['users'] } }),
+              });
+              if (!r.ok) throw new Error(`Discord ${r.status}: ${await r.text()}`);
+              return (await r.json()).id;
+            }
+            async function del(id) {
+              if (!id) return;
+              const r = await fetch(`${process.env.DISCORD_WEBHOOK}/messages/${id}`, { method: 'DELETE' });
+              if (!r.ok && r.status !== 404) core.warning(`Suppression ${id} impossible : ${r.status}`);
+            }
 
-          curl -s -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" \
-            -d "{
-              \"content\": \"${MENTION} tu as une PR à review !\n**#${PR_NUMBER} - ${PR_TITLE}**\n${PR_URL}\nDemandé par **${REQUESTER}**\"
-            }"
+            // ---------- État (commentaire caché sur la PR) ----------
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const stateComment = comments.find(c => c.body?.startsWith(`<!-- ${MARKER}`));
+            let state = { requests: {}, others: [] };
+            if (stateComment) {
+              const m = stateComment.body.match(new RegExp(`<!-- ${MARKER} (.*) -->`, 's'));
+              if (m) state = JSON.parse(m[1]);
+            }
+            async function save() {
+              const body = `<!-- ${MARKER} ${JSON.stringify(state)} -->`;
+              if (stateComment) await github.rest.issues.updateComment({ owner, repo, comment_id: stateComment.id, body });
+              else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+
+            // ---------- Logique ----------
+            const event = context.eventName;
+            const action = context.payload.action;
+
+            // 1. Review demandée -> ping du reviewer
+            if (event === 'pull_request' && action === 'review_requested') {
+              const reviewer = context.payload.requested_reviewer?.login;
+              const who = reviewer && mention(reviewer);
+              if (!who) return; // équipe ou personne absente de DISCORD_MAP
+              await del(state.requests[reviewer]); // review redemandée : on remplace l'ancien message
+              state.requests[reviewer] = await send(
+                `${who} tu as une PR à review !\n${prInfo}\nDemandé par **${context.actor}**`
+              );
+              await save();
+            }
+
+            // 2. Demande de review retirée -> suppression du message
+            else if (event === 'pull_request' && action === 'review_request_removed') {
+              const reviewer = context.payload.requested_reviewer?.login;
+              if (!reviewer || !state.requests[reviewer]) return;
+              await del(state.requests[reviewer]);
+              delete state.requests[reviewer];
+              await save();
+            }
+
+            // 3. Review soumise -> suppression de la demande + ping de l'auteur
+            else if (event === 'pull_request_review') {
+              const review = context.payload.review;
+              const reviewer = review.user.login;
+              const s = review.state.toLowerCase();
+              if (s !== 'approved' && s !== 'changes_requested') return; // simple commentaire : ignoré
+
+              await del(state.requests[reviewer]);
+              delete state.requests[reviewer];
+
+              const author = mention(pr.user.login);
+              if (author) {
+                const text = s === 'approved'
+                  ? `✅ ${author} ta PR a été approuvée par **${reviewer}** !\n${prInfo}`
+                  : `🔁 ${author} **${reviewer}** demande des changements sur ta PR\n${prInfo}`;
+                state.others.push(await send(text));
+              }
+              await save();
+            }
+
+            // 4. PR fermée / mergée -> on supprime tout
+            else if (event === 'pull_request' && action === 'closed') {
+              for (const id of [...Object.values(state.requests), ...state.others]) await del(id);
+              if (stateComment) await github.rest.issues.deleteComment({ owner, repo, comment_id: stateComment.id });
+            }
