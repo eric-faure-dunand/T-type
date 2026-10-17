@@ -3,6 +3,7 @@
 
     #include <cstddef>
     #include <cstdint>
+    #include <map>
     #include <vector>
 
 namespace r_type {
@@ -19,6 +20,12 @@ enum class Command : std::uint8_t {
     ConnectRequest = 0x01,
     ConnectAccept = 0x02,
     Disconnect = 0x03,
+    CreateRoom = 0x04,
+    JoinRoom = 0x05,
+    RoomJoined = 0x06,
+    ListRooms = 0x07,
+    RoomList = 0x08,
+    DisconnectRoom = 0x09,
     PlayerInput = 0x10,
     InitialStateBegin = 0x20,
     EntityUpdate = 0x21,
@@ -40,6 +47,11 @@ enum class NetError : std::uint8_t {
     WrongDirection = 0x08,
     BadPayloadSize = 0x09,
     NotConnected = 0x0A,
+    Full = 0x0B,
+    RoomNotFound = 0x0D,
+    CommandNotHandled = 0x0E,
+    AlreadyInRoom = 0x0F,
+    TooManyRooms = 0x10,
 };
 
 enum class ArgType : std::uint8_t {
@@ -61,8 +73,9 @@ enum class Role : std::uint8_t {
 
 struct CommandInfo {
     Direction direction;
-    bool reserved;
     std::vector<ArgType> schema;
+    bool list = false;
+    bool reserved = false;
 };
 
 const CommandInfo *FindCommand(std::uint8_t code);

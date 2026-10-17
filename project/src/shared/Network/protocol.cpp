@@ -1,32 +1,42 @@
-#include <map>
-
 #include "protocol.hpp"
 
 namespace r_type {
 
 static const std::map<Command, CommandInfo> COMMANDS = {
     // (empty)
-    {Command::ConnectRequest, {Direction::ClientToServer, false, {}}},
+    {Command::ConnectRequest, {Direction::ClientToServer, {}}},
     // (empty)
-    {Command::ConnectAccept, {Direction::ServerToClient, false, {}}},
+    {Command::ConnectAccept, {Direction::ServerToClient, {}}},
     // (empty)
-    {Command::Disconnect, {Direction::Both, false, {}}},
-    // entity_id, input_flags
-    {Command::PlayerInput, {Direction::ClientToServer, false, {ArgType::U32, ArgType::U8}}},
-    // entity_count
-    {Command::InitialStateBegin, {Direction::ServerToClient, false, {ArgType::U32}}},
-    // entity_id, x, y
-    {Command::EntityUpdate, {Direction::ServerToClient, false, {ArgType::U32, ArgType::I32, ArgType::I32}}},
-    // entity_id, entity_kind, x, y
-    {Command::EntitySpawn, {Direction::ServerToClient, false, {ArgType::U32, ArgType::U8, ArgType::I32, ArgType::I32}}},
+    {Command::Disconnect, {Direction::Both, {}}},
+    // (empty)
+    {Command::CreateRoom, {Direction::ClientToServer, {}}},
+    // room_id
+    {Command::JoinRoom, {Direction::ClientToServer, {ArgType::U32}}},
+    // port
+    {Command::RoomJoined, {Direction::ServerToClient, {ArgType::U32}}},
+    // (empty)
+    {Command::ListRooms, {Direction::ClientToServer, {}}},
+    // list of: room_id, free_slots
+    {Command::RoomList, {Direction::ServerToClient, {ArgType::U32, ArgType::U8}, true}},
     // entity_id
-    {Command::EntityDestroy, {Direction::ServerToClient, false, {ArgType::U32}}},
+    {Command::DisconnectRoom, {Direction::ClientToServer, {ArgType::U32}}},
+    // entity_id, input_flags
+    {Command::PlayerInput, {Direction::ClientToServer, {ArgType::U32, ArgType::U8}}},
     // entity_count
-    {Command::InitialStateEnd, {Direction::ServerToClient, false, {ArgType::U32}}},
+    {Command::InitialStateBegin, {Direction::ServerToClient, {ArgType::U32}}},
+    // entity_id, x, y
+    {Command::EntityUpdate, {Direction::ServerToClient, {ArgType::U32, ArgType::I32, ArgType::I32}}},
+    // entity_id, entity_kind, x, y
+    {Command::EntitySpawn, {Direction::ServerToClient, {ArgType::U32, ArgType::U8, ArgType::I32, ArgType::I32}}},
+    // entity_id
+    {Command::EntityDestroy, {Direction::ServerToClient, {ArgType::U32}}},
+    // entity_count
+    {Command::InitialStateEnd, {Direction::ServerToClient, {ArgType::U32}}},
     // reserved for reliable delivery, rejected in Part 1
-    {Command::Ack, {Direction::Both, true, {}}},
+    {Command::Ack, {Direction::Both, {}, false, true}},
     // error_code, rejected_command
-    {Command::Error, {Direction::Both, false, {ArgType::U8, ArgType::U8}}},
+    {Command::Error, {Direction::Both, {ArgType::U8, ArgType::U8}}},
 };
 
 const CommandInfo *FindCommand(std::uint8_t code) {

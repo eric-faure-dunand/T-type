@@ -1,8 +1,4 @@
-#include <string>
-#include <utility>
-
 #include "packet.hpp"
-#include "Error.hpp"
 
 namespace r_type {
 
@@ -96,23 +92,28 @@ std::vector<std::uint8_t> EncodePacket(Command command, const ArgsList& argsList
         throw Error("Packet: command " + Hex(code) + " is unknown or reserved.");
     if (!CanSend(info->direction, role))
         throw Error("Packet: command " + Hex(code) + " cannot be sent in this direction.");
-    if (argsList.size() != 1)
+    if (!info->list && argsList.size() != 1)
         throw Error("Packet: command " + Hex(code) + " must carry exactly one record.");
 
-    const Args& args = argsList.front();
-    if (args.size() != info->schema.size())
-        throw Error("Packet: command " + Hex(code) + " expects " + std::to_string(info->schema.size())
-            + " arguments, got " + std::to_string(args.size()) + ".");
+    const std::size_t payloadSize = argsList.size() * SchemaSize(info->schema);
+    if (payloadSize > MAX_PAYLOAD_SIZE)
+        throw Error("Packet: command " + Hex(code) + " payload of " + std::to_string(payloadSize)
+            + " bytes exceeds " + std::to_string(MAX_PAYLOAD_SIZE) + ".");
 
     Header header;
     header.command = code;
-    header.size = static_cast<std::uint16_t>(SchemaSize(info->schema));
+    header.size = static_cast<std::uint16_t>(payloadSize);
 
     std::vector<std::uint8_t> datagram;
     datagram.reserve(HEADER_SIZE + header.size);
     WriteHeader(datagram, header);
-    for (std::size_t i = 0; i < args.size(); i++)
-        WriteArg(datagram, info->schema[i], args[i], code, i);
+    for (const Args& args : argsList) {
+        if (args.size() != info->schema.size())
+            throw Error("Packet: command " + Hex(code) + " expects " + std::to_string(info->schema.size())
+                + " arguments, got " + std::to_string(args.size()) + ".");
+        for (std::size_t i = 0; i < args.size(); i++)
+            WriteArg(datagram, info->schema[i], args[i], code, i);
+    }
     return datagram;
 }
 
@@ -144,21 +145,28 @@ DecodeResult DecodePacket(std::span<const std::uint8_t> datagram, Role role) {
         return Reject(NetError::ReservedCommand, header.command);
     if (!CanReceive(info->direction, role))
         return Reject(NetError::WrongDirection, header.command);
-    if (header.size != SchemaSize(info->schema))
-        return Reject(NetError::BadPayloadSize, header.command);
 
-    Args args;
-    args.reserve(info->schema.size());
-    std::size_t offset = HEADER_SIZE;
-    for (const ArgType type : info->schema) {
-        args.push_back(ReadArg(datagram, offset, type));
-        offset += ArgSize(type);
-    }
+    const std::size_t recordSize = SchemaSize(info->schema);
+    const bool validSize = info->list
+        ? recordSize != 0 && header.size % recordSize == 0
+        : header.size == recordSize;
+    if (!validSize)
+        return Reject(NetError::BadPayloadSize, header.command);
 
     DecodeResult result;
     result.ok = true;
     result.command = static_cast<Command>(header.command);
-    result.args.push_back(std::move(args));
+    const std::size_t records = info->list ? header.size / recordSize : 1;
+    std::size_t offset = HEADER_SIZE;
+    for (std::size_t r = 0; r < records; r++) {
+        Args args;
+        args.reserve(info->schema.size());
+        for (const ArgType type : info->schema) {
+            args.push_back(ReadArg(datagram, offset, type));
+            offset += ArgSize(type);
+        }
+        result.args.push_back(std::move(args));
+    }
     return result;
 }
 
