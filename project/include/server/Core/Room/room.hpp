@@ -1,0 +1,55 @@
+#ifndef ROOM_HPP
+    #define ROOM_HPP
+
+    #include <atomic>
+    #include <chrono>
+    #include <cstddef>
+    #include <cstdint>
+    #include <thread>
+
+    #include "sig.hpp"
+    #include "clock.hpp"
+    #include "network.hpp"
+
+namespace r_type {
+
+constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
+constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
+
+class Room {
+    std::uint32_t _id;
+    UdpSocket net;
+    std::uint16_t _port = 0;
+    std::chrono::steady_clock::time_point _lastAnnounce;
+    std::atomic_bool _used = false;
+    std::atomic_bool _running = false;
+    Clock _clock;
+    std::thread _thread;
+
+    void Run();
+
+public:
+    explicit Room(std::uint32_t id);
+    ~Room();
+
+    Room(const Room&) = delete;
+    Room& operator=(const Room&) = delete;
+
+    void Start();
+    void Stop();
+    bool ShouldClose() const;
+
+    std::uint32_t Id() const {return _id;};
+    std::uint16_t Port() const {return _port;};
+    std::size_t FreeSlots() const;
+    bool HasClient(const Endpoint& client) const;
+    void Announce(const Endpoint& client);
+    void RemoveClient(const Endpoint& client);
+
+    std::size_t GetMaxClients() const {return net.GetMaxClients();};
+    void SetMaxClients(std::size_t maxClients) {net.SetMaxClients(maxClients);};
+};
+
+}
+
+#endif

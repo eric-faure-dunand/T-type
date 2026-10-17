@@ -50,6 +50,8 @@ target_include_directories(r-type_server
         project/include/server
         project/include/server/Security
         project/include/server/Core
+        project/include/server/Core/Room
+        project/include/shared
         project/include/shared/Error
         project/include/shared/Network
         project/include/shared/Printer
