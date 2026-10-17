@@ -38,5 +38,7 @@ The magic number is a format marker, **not** authentication or an anti-cheat mec
 - UDP packets may be lost, duplicated, or reordered. This RFC defines validation and message formats, **not reliable delivery**. Critical events and initial synchronization need recovery or retransmission before production use.
 - Reserved command codes must not be treated as implemented features.
 - A rejected datagram may be answered with an `ERROR` command carrying an error code; the rejected payload is never echoed back.
+- The server listens on one port for the lobby (connection, room list, room creation and join); each room listens on its own port for the game. A client leaves a room with `DISCONNECT_ROOM` and the server with `DISCONNECT`. See [Protocol.md §2.1](Protocol.md#21-server-and-room-sockets).
+- A valid command for which the receiver has no handler is answered with `ERROR COMMAND_NOT_HANDLED`.
 
-See [Protocol.md](Protocol.md) for command codes, payload formats, examples, and validation.
+See [Protocol.md](Protocol.md) for command codes, payload formats, examples, and validation, and [doc/Network.md](../Network.md) for the implementation of the network layer.

@@ -5,8 +5,11 @@
     #include <span>
     #include <variant>
     #include <vector>
+    #include <string>
+    #include <utility>
 
     #include "protocol.hpp"
+    #include "Error.hpp"
 
 namespace r_type {
 

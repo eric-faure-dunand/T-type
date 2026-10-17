@@ -18,7 +18,7 @@ Part 1 constraints:
 - `Size = datagram_size - 13`, maximum 1187.
 - `Sequence number = 1` and `Sequence length = 1` because one complete message is carried per datagram (fragment 1 of 1).
 - `Sequence number` is the 1-based fragment index and `Sequence length` the total fragment count of the logical message. Neither is a datagram counter nor an acknowledgement: the header carries no ordering information.
-- Each payload carries exactly **one record** laid out by the command's fixed schema in §3. Carrying a list of records in one logical message is future work.
+- Each payload carries exactly **one record** laid out by the command's fixed schema in §3, except `ROOM_LIST`, whose payload is a list of 0 to N records of the same schema. Carrying a list for other commands is future work.
 - A client-to-server packet is accepted only if its command is permitted in that direction and its connection is authorized for the referenced entity.
 
 **Coordinates:** `x` and `y` are integer world coordinates in game units (the initial implementation may use pixel-equivalent units). Position is absolute, not a relative delta. The world origin and coordinate bounds are determined by the gameplay implementation and must be validated server-side.
@@ -27,21 +27,45 @@ Part 1 constraints:
 
 ## 2. Command registry
 
-| Code | Command | Direction | Size | Purpose |
-|---|---|---|---:|---|
-| `0x01` | `CONNECT_REQUEST` | Client → Server | 0 | Ask the server to connect |
-| `0x02` | `CONNECT_ACCEPT` | Server → Client | 0 | Accept the connection |
-| `0x03` | `DISCONNECT` | Both | 0 | End the connection |
-| `0x10` | `PLAYER_INPUT` | Client → Server | 5 | Submit input for a controlled entity |
-| `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | 4 | Begin an initial state transfer |
-| `0x21` | `ENTITY_UPDATE` | Server → Client | 12 | Publish authoritative entity position |
-| `0x22` | `ENTITY_SPAWN` | Server → Client | 13 | Create or refresh an entity representation |
-| `0x23` | `ENTITY_DESTROY` | Server → Client | 4 | Remove an entity |
-| `0x24` | `INITIAL_STATE_END` | Server → Client | 4 | End an initial state transfer |
-| `0x30` | `ACK` | Reserved | — | Future reliable delivery; not used in Part 1 |
-| `0x84` | `ERROR` | Both | 2 | Report a rejected datagram to its sender |
+| Code | Command | Direction | Handled by | Size | Purpose |
+|---|---|---|---|---:|---|
+| `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | Ask to connect |
+| `0x02` | `CONNECT_ACCEPT` | Server → Client | Server, Room | 0 | Accept the connection |
+| `0x03` | `DISCONNECT` | Both | Server | 0 | End the connection to the server |
+| `0x04` | `CREATE_ROOM` | Client → Server | Server | 0 | Create a room and enter it |
+| `0x05` | `JOIN_ROOM` | Client → Server | Server | 4 | Ask to enter a room |
+| `0x06` | `ROOM_JOINED` | Server → Client | Server | 4 | Give the port of the room to connect to |
+| `0x07` | `LIST_ROOMS` | Client → Server | Server | 0 | Ask for the rooms with free slots |
+| `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | List the rooms with free slots |
+| `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | Leave the room, giving the player entity |
+| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 5 | Submit input for a controlled entity |
+| `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | Begin an initial state transfer |
+| `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 | Publish authoritative entity position |
+| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 13 | Create or refresh an entity representation |
+| `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
+| `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
+| `0x30` | `ACK` | Reserved | — | — | Future reliable delivery; not used in Part 1 |
+| `0x84` | `ERROR` | Both | Server, Room | 2 | Report a rejected datagram to its sender |
+
+In the *Direction* column, *Server* means the host side: the server socket or a room socket. The *Handled by* column says where the command is meant to be handled (§2.1). `CONNECT_REQUEST`, `CONNECT_ACCEPT` and `DISCONNECT` are handled by the network layer itself, except that a room ignores `DISCONNECT` (§2.1). Any other valid command for which the receiver has no handler is answered with `ERROR COMMAND_NOT_HANDLED`, except `ERROR`, which is never answered.
 
 Unknown and reserved command codes are rejected. All payload layouts below are exact: additional bytes are invalid.
+
+## 2.1. Server and room sockets
+
+The server listens on one UDP port (default 6767) for the lobby. Each room listens on its own UDP port, chosen by the operating system when the room is created.
+
+1. The client connects to the server (`CONNECT_REQUEST` → `CONNECT_ACCEPT`). The server accepts a limited number of clients (default 50); beyond, it answers `ERROR FULL`.
+2. The client asks for the rooms (`LIST_ROOMS` → `ROOM_LIST`), then creates a room (`CREATE_ROOM`) or joins one by id (`JOIN_ROOM`). The server answers `ROOM_JOINED` with the room port and announces the client endpoint to that room. The creator of a room enters it like any other client.
+3. The client sends `CONNECT_REQUEST` to the room port, from the same UDP endpoint. The room only accepts endpoints announced by the server; it answers `CONNECT_ACCEPT`, or `ERROR FULL` when it already holds its maximum number of clients (default 4). After a refusal, the client connects back to the server port it kept and may list and join again.
+4. Game commands are exchanged with the room. The client stays connected to the server while it is in a room.
+5. `DISCONNECT_ROOM` sent to the room leaves the room. `DISCONNECT` sent to the server ends the connection and also removes the client from its room. A room ignores `DISCONNECT`.
+
+On the client side, the client talks to one host at a time: the last server or room it sent `CONNECT_REQUEST` to, always from the same UDP endpoint. It keeps the server port from its first connection, so that it can come back to the lobby by sending `DISCONNECT_ROOM` to the room, then `CONNECT_REQUEST` to the server again; the server answers `CONNECT_ACCEPT` since the client is still in its list.
+
+Whatever the reason a client leaves a room (`DISCONNECT_ROOM`, removal because it sent `DISCONNECT` to the server, or the room disconnecting it), the room is notified with the client endpoint, so that the game never keeps a motionless player entity. `DISCONNECT_ROOM` also gives the id of the player entity. The implementation is described in [doc/Network.md](../Network.md).
+
+A client is in at most one room: `CREATE_ROOM` or `JOIN_ROOM` from a client already connected to a room is answered with `ERROR ALREADY_IN_ROOM`. The number of rooms is limited by the server (default 12); beyond, `CREATE_ROOM` is answered with `ERROR TOO_MANY_ROOMS`. Room ids are assigned by the server and never reused while it runs. A room is destroyed as soon as it becomes empty after having had clients, or one minute after its last announcement if nobody connected; its port is then closed. Limits and timeouts are implementation defaults, not wire constants.
 
 ## 3. Payload layouts
 
@@ -49,22 +73,60 @@ Offsets in this section are relative to the **start of the payload** (immediatel
 
 ### `CONNECT_REQUEST` (`0x01`)
 
-Empty payload. The client asks the server whether it may connect. The server adds the sender endpoint to its list of connected clients and answers `CONNECT_ACCEPT`. A request from an endpoint that is already connected is answered again (e.g. when the previous `CONNECT_ACCEPT` was lost) without adding it twice. A UDP endpoint is not proof of identity; spoofing protection and authentication are future work.
+Empty payload. The client asks the server, or a room (§2.1), whether it may connect. The receiver adds the sender endpoint to its list of connected clients and answers `CONNECT_ACCEPT`. A request from an endpoint that is already connected is answered again (e.g. when the previous `CONNECT_ACCEPT` was lost) without adding it twice. When its list is full, the receiver answers `ERROR FULL`. A room also answers `ERROR NOT_CONNECTED` to an endpoint the server did not announce. A UDP endpoint is not proof of identity; spoofing protection and authentication are future work.
 
 ### `CONNECT_ACCEPT` (`0x02`)
 
-Empty payload. The server accepts the connection. The client considers itself connected only when `CONNECT_ACCEPT` comes from the server it asked. Nothing else is assigned: no entity, no room.
-
-> **TODO:** room creation / join commands will be added later; the ids they need will be defined there.
+Empty payload. The server or the room accepts the connection. The client only takes into account a `CONNECT_ACCEPT` coming from its current host (§2.1). Nothing else is assigned: no entity.
 
 ### `DISCONNECT` (`0x03`)
 
-Empty payload. Ends the connection, from either side, and is never answered.
+Empty payload. Never answered.
 
-- Sent by a client: the server removes the sender from its list of connected clients. A `DISCONNECT` from an endpoint that is not connected is ignored.
-- Sent by the server: the server removes the client from its list, and the client considers itself disconnected. A client ignores a `DISCONNECT` that does not come from its server.
+- Sent by a client to the server: ends the connection. The server removes the sender from its list of connected clients and from its room. A `DISCONNECT` from an endpoint that is not connected is ignored.
+- Sent by a client to a room: ignored. A client leaves a room with `DISCONNECT_ROOM`.
+- Sent by the server or a room to a client: the client is removed from that list and considers itself disconnected from its current host. A client ignores a `DISCONNECT` that does not come from its current host.
 
-> **TODO:** a `room_id` will be added with room creation / join; clients will send `0`.
+### `CREATE_ROOM` (`0x04`)
+
+Empty payload. The server creates a room, announces the sender to it and answers `ROOM_JOINED`. Refused with `ERROR ALREADY_IN_ROOM` or `ERROR TOO_MANY_ROOMS` (§2.1).
+
+### `JOIN_ROOM` (`0x05`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `room_id` | uint32 | Id of the room, as given by `ROOM_LIST` |
+
+The server announces the sender to the room and answers `ROOM_JOINED`, without checking whether the room is full: the room itself refuses with `FULL` (§2.1). Refused with `ERROR ROOM_NOT_FOUND` for an unknown id, and with `ERROR ALREADY_IN_ROOM`.
+
+### `ROOM_JOINED` (`0x06`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `port` | uint32 | UDP port of the room on the server's IP address, always below 65536 |
+
+The client then sends `CONNECT_REQUEST` to that port, from the same UDP endpoint, and keeps the server port to come back later. The room id is not repeated: the client only needs the port.
+
+### `LIST_ROOMS` (`0x07`)
+
+Empty payload. The server answers `ROOM_LIST`.
+
+### `ROOM_LIST` (`0x08`)
+
+A list of 0 to 237 records, one per room with at least one free slot. `Size` must be a multiple of 5; an empty payload means that no room is available. This is the only command whose payload carries more than one record in Part 1.
+
+| Offset in record | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `room_id` | uint32 | Id to send in `JOIN_ROOM` |
+| 4 | `free_slots` | uint8 | Number of clients the room can still accept |
+
+### `DISCONNECT_ROOM` (`0x09`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | Player entity controlled by the client in this room |
+
+Sent by a client to its room to leave it. Never answered. The room removes the sender from its list of connected clients and notifies the game, which removes the player entity. The client stays in the server's list and goes back to the lobby by connecting to the server again (§2.1). As for any client-provided entity id, the room must check that the sender controls `entity_id` before acting on that entity. Sent to the server, it is answered with `ERROR COMMAND_NOT_HANDLED`.
 
 ### `PLAYER_INPUT` (`0x10`)
 
@@ -140,9 +202,14 @@ Sent by either side in response to a rejected datagram, following the rules of �
 | `0x07` | `RESERVED_COMMAND` | Reserved command code (`ACK`) |
 | `0x08` | `WRONG_DIRECTION` | Command not allowed in this direction |
 | `0x09` | `BAD_PAYLOAD_SIZE` | Payload size does not match the command schema |
-| `0x0A` | `NOT_CONNECTED` | Valid datagram sent to the server by an endpoint that is not connected (see §5) |
+| `0x0A` | `NOT_CONNECTED` | Valid datagram sent to the server or a room by an endpoint that is not connected, or `CONNECT_REQUEST` to a room from an endpoint the server did not announce (see §5) |
+| `0x0B` | `FULL` | `CONNECT_REQUEST` while the server or the room holds its maximum number of clients |
+| `0x0D` | `ROOM_NOT_FOUND` | `JOIN_ROOM` with an unknown room id |
+| `0x0E` | `COMMAND_NOT_HANDLED` | Valid command for which the receiver has no handler (§2) |
+| `0x0F` | `ALREADY_IN_ROOM` | `CREATE_ROOM` or `JOIN_ROOM` from a client already in a room |
+| `0x10` | `TOO_MANY_ROOMS` | `CREATE_ROOM` while the server holds its maximum number of rooms |
 
-Error codes `0x0B`–`0xFF` are reserved for future revisions.
+Error codes `0x0C` and `0x11`–`0xFF` are reserved for future revisions.
 
 ## 3.1. Initial-state transfer and UDP reordering (Part 1)
 
@@ -188,14 +255,16 @@ The receiver must validate **before** interpreting command payload fields:
 2. Check magic bytes `52 54`.
 3. Decode fields using big-endian, with bounds-checked reads.
 4. Require `Size == received_bytes - 13`, and `Sequence number == 1` and `Sequence length == 1` in Part 1.
-5. Reject unknown/reserved commands, wrong directions, and incorrect command-specific payload lengths.
+5. Reject unknown/reserved commands, wrong directions, and incorrect command-specific payload lengths. A valid command without handler on the receiving side is answered with `COMMAND_NOT_HANDLED` (§2).
 6. Reject malformed flags and entity IDs the sender is not allowed to control.
 7. Duplicate, delayed, and reordered UDP packets cannot be detected from the Part 1 header; apply the rules of §3 and §3.1 that do not depend on ordering. Buffering limits and timeout values are implementation policies and must be documented when implemented.
 8. Never crash or terminate the server because of malformed input; discard invalid datagrams, optionally record rate-limited diagnostics.
 
 Do not echo invalid payloads back to the sender. A datagram rejected by rules 1–5 is answered with an `ERROR` (§3) only when it is at least 13 bytes long and carries the valid magic number, and never when the rejected command is itself `ERROR` (no error ping-pong). Shorter datagrams and datagrams with a wrong magic number are discarded silently. The 15-byte `ERROR` reply can be slightly larger than the smallest rejected datagram (13 bytes); rate limiting replies is an implementation policy.
 
-**Connected clients.** Apart from `CONNECT_REQUEST`, the server only processes valid datagrams coming from connected endpoints (§3, `CONNECT_REQUEST` / `DISCONNECT`). A valid datagram from an endpoint that is not connected is answered with `ERROR` `NOT_CONNECTED`, so that the client knows it must connect again (for example after a server restart), except `DISCONNECT` and `ERROR`, which are ignored silently.
+**Connected clients.** Apart from `CONNECT_REQUEST`, the server and the rooms only process valid datagrams coming from connected endpoints (§2.1, §3). A valid datagram from an endpoint that is not connected is answered with `ERROR` `NOT_CONNECTED`, so that the client knows it must connect again (for example after a server restart), except `DISCONNECT` and `ERROR`, which are ignored silently.
+
+**Client side.** A client only processes datagrams coming from its current host (§2.1) and silently ignores any other sender.
 
 ## 6. Limitations and future extension
 
@@ -205,4 +274,4 @@ Do not echo invalid payloads back to the sender. A datagram rejected by rules 1�
 - **No authentication or encryption.** A magic number is not a security credential. The server must validate source endpoints, permissions, and game rules.
 - **No wire version field.** The header is frozen for compatibility with Eric's design. Future incompatible changes require an explicit negotiated strategy or new magic number.
 - **Issue #9 baseline approved.** The fields in [ReplicatedComponents.md](ReplicatedComponents.md) are the agreed Part 1 baseline. Health, velocity, animation, entity-control reassignment, and other future synchronized data require explicit new or revised wire messages; they cannot be inferred from C++ memory layout.
-- **Lobby/multi-instance and bandwidth optimizations** belong to Part 2, not this Part 1 protocol definition.
+- **Bandwidth optimizations** belong to Part 2, not this Part 1 protocol definition.
