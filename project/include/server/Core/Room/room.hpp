@@ -25,6 +25,7 @@ class Room {
         Endpoint client;
         std::uint32_t entityId;
         std::uint8_t inputFlags;
+        InputState state;
     };
 
     std::uint32_t _id;
