@@ -73,3 +73,28 @@ if(WIN32)
         NOMINMAX
     )
 endif()
+## demo (local gameplay, no network)
+
+option(RTYPE_BUILD_DEMO "Build the local gameplay demo (needs Raylib)" ON)
+if(RTYPE_BUILD_DEMO)
+    enable_language(C)
+    CPMAddPackage(
+        NAME raylib
+        GITHUB_REPOSITORY raysan5/raylib
+        GIT_TAG 5.5
+        VERSION 5.5
+        OPTIONS
+            "BUILD_EXAMPLES OFF"
+            "BUILD_SHARED_LIBS OFF"
+    )
+
+    add_executable(r-type_demo ${CMAKE_SOURCE_DIR}/project/src/demo/main.cpp)
+    target_include_directories(r-type_demo PRIVATE project/include)
+    target_link_libraries(r-type_demo PRIVATE raylib)
+
+    if(MSVC)
+        target_compile_options(r-type_demo PRIVATE /W4)
+    else()
+        target_compile_options(r-type_demo PRIVATE -Wall -Wextra -Werror)
+    endif()
+endif()
