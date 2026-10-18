@@ -7,6 +7,7 @@
     #include <cstdint>
     #include <thread>
     #include <iostream>
+    #include <deque>
 
     #include "sig.hpp"
     #include "clock.hpp"
@@ -15,9 +16,17 @@
 namespace r_type {
 
 constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
+constexpr std::size_t MAX_PENDING_INPUTS = 256;
 constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
 
 class Room {
+
+    struct PlayerInputEvent {
+        Endpoint client;
+        std::uint32_t entityId;
+        std::uint8_t inputFlags;
+    };
+
     std::uint32_t _id;
     UdpSocket net;
     std::uint16_t _port = 0;
@@ -26,9 +35,12 @@ class Room {
     std::atomic_bool _running = false;
     Clock _clock;
     std::thread _thread;
+    std::deque<PlayerInputEvent> _pendingInputs;
 
     void Run();
+
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
+    void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
 
 public:
     explicit Room(std::uint32_t id);
@@ -50,6 +62,8 @@ public:
 
     std::size_t GetMaxClients() const {return net.GetMaxClients();};
     void SetMaxClients(std::size_t maxClients) {net.SetMaxClients(maxClients);};
+
+    std::deque<PlayerInputEvent> ConsumePlayerInputs();
 };
 
 }

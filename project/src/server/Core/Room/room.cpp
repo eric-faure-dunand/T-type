@@ -7,6 +7,9 @@ Room::Room(std::uint32_t id):
     net.On(Command::DisconnectRoom, [this](const Endpoint& from, const ArgsList&) {
         net.RemoveClient(from);
     });
+    net.On(Command::PlayerInput, [this](const Endpoint& from, const ArgsList& args) {
+        HandlePlayerInput(from, args);
+    });
     net.SetFallback([this](const Endpoint& from, Command command, const ArgsList& args) {
         DebugFallback(from, command, args);
     });
@@ -16,13 +19,6 @@ Room::Room(std::uint32_t id):
 
 Room::~Room() {
     Stop();
-}
-
-void Room::DebugFallback(const Endpoint& from, Command command, const ArgsList&) {
-    std::clog << "[ROOM " << _id << "] Unhandled command "
-              << static_cast<int>(command) << " from "
-              << from.address().to_string() << ":" << from.port()
-              << '\n';
 }
 
 void Room::Start() {
