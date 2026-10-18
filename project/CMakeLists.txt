@@ -15,6 +15,45 @@ add_library(r_type::loop ALIAS r_type_loop)
 target_include_directories(r_type_loop INTERFACE ${RTYPE_INCLUDE_DIR})
 target_compile_features(r_type_loop INTERFACE cxx_std_20)
 
+# Render module, graphics-library free: IRenderer, Sprite, TextureManager,
+# renderSystem, IKeyboard. Always built, so it is testable without Raylib.
+add_library(r_type_render STATIC
+    src/client/Render/TextureManager.cpp
+    src/client/Render/RenderSystem.cpp)
+add_library(r_type::render ALIAS r_type_render)
+target_link_libraries(r_type_render PUBLIC r_type::ecs)
+target_compile_features(r_type_render PUBLIC cxx_std_20)
+if(MSVC)
+    target_compile_options(r_type_render PRIVATE /W4)
+else()
+    target_compile_options(r_type_render PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+# Raylib implementation of IRenderer / IKeyboard. Raylib is linked PRIVATE: its
+# headers are only visible to src/client/Render/RaylibBackend.cpp.
+# Needs the X11 / OpenGL development packages on Linux (see docs/rendering.md).
+# The server must not depend on it: build with -DRTYPE_BUILD_CLIENT=OFF to skip it.
+option(RTYPE_BUILD_CLIENT "Build the Raylib client modules" ON)
+if(RTYPE_BUILD_CLIENT)
+    CPMAddPackage(
+        NAME raylib
+        GITHUB_REPOSITORY raysan5/raylib
+        GIT_TAG 5.5
+        VERSION 5.5
+        OPTIONS
+            "BUILD_EXAMPLES OFF"
+            "BUILD_SHARED_LIBS OFF"
+    )
+    add_library(r_type_raylib_backend STATIC src/client/Render/RaylibBackend.cpp)
+    add_library(r_type::raylib_backend ALIAS r_type_raylib_backend)
+    target_link_libraries(r_type_raylib_backend PUBLIC r_type::render PRIVATE raylib)
+    if(MSVC)
+        target_compile_options(r_type_raylib_backend PRIVATE /W4)
+    else()
+        target_compile_options(r_type_raylib_backend PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+endif()
+
 option(RTYPE_BUILD_TESTS "Build the unit tests" ON)
 if(RTYPE_BUILD_TESTS)
     add_subdirectory(tests)

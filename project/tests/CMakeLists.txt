@@ -43,3 +43,29 @@ target_link_libraries(ecs_tests PRIVATE r_type::ecs)
 
 rtype_add_test(loop_tests shared/Loop/test_fixed_timestep.cpp)
 target_link_libraries(loop_tests PRIVATE r_type::loop r_type::ecs)
+
+rtype_add_test(render_tests
+    client/Render/test_render_system.cpp
+    client/Render/test_texture_manager.cpp)
+target_link_libraries(render_tests PRIVATE r_type::render r_type::ecs)
+
+# The only test that opens a window (skipped when there is no display).
+# CI without a display: ctest -LE gui
+if(RTYPE_BUILD_CLIENT)
+    add_executable(raylib_backend_tests client/Render/test_raylib_backend.cpp)
+    target_link_libraries(raylib_backend_tests PRIVATE r_type::raylib_backend GTest::gtest_main)
+    set_target_properties(raylib_backend_tests PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${RTYPE_TESTS_OUTPUT_DIR}")
+    foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
+        string(TOUPPER ${CONFIG} CONFIG_UPPER)
+        set_target_properties(raylib_backend_tests PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${RTYPE_TESTS_OUTPUT_DIR}")
+    endforeach()
+    gtest_discover_tests(raylib_backend_tests PROPERTIES LABELS gui)
+endif()
+
+# Acceptance criterion: no Raylib include outside the render module.
+add_test(NAME NoRaylibOutsideRenderModule
+    COMMAND ${CMAKE_COMMAND}
+        -DROOT=${CMAKE_SOURCE_DIR}/project
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check_no_raylib_outside_render.cmake)
