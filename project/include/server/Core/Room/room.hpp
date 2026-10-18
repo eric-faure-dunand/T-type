@@ -6,6 +6,7 @@
     #include <cstddef>
     #include <cstdint>
     #include <thread>
+    #include <iostream>
 
     #include "sig.hpp"
     #include "clock.hpp"
@@ -27,6 +28,7 @@ class Room {
     std::thread _thread;
 
     void Run();
+    void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
 
 public:
     explicit Room(std::uint32_t id);
