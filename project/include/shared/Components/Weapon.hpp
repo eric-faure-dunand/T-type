@@ -5,10 +5,10 @@
 ** Weapon.hpp
 */
 
-#ifndef WEAPON_HPP
-    #define WEAPON_HPP
+#ifndef COMPONENTS_WEAPON_HPP
+    #define COMPONENTS_WEAPON_HPP
 
-namespace r_type {
+namespace r_type::game {
 
 struct Weapon {
     float fireRate = 5.f;
