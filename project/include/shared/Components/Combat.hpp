@@ -1,7 +1,14 @@
-#ifndef COMBAT_HPP
-    #define COMBAT_HPP
+/*
+** EPITECH PROJECT, 2026
+** T-type
+** File description:
+** Combat.hpp
+*/
 
-namespace r_type {
+#ifndef COMPONENTS_COMBAT_HPP
+    #define COMPONENTS_COMBAT_HPP
+
+namespace r_type::game {
 
 struct Health {
     int current = 1;
