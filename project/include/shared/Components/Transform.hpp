@@ -1,7 +1,14 @@
-#ifndef TRANSFORM_HPP
-    #define TRANSFORM_HPP
+/*
+** EPITECH PROJECT, 2026
+** T-type
+** File description:
+** Transform.hpp
+*/
 
-namespace r_type {
+#ifndef COMPONENTS_TRANSFORM_HPP
+    #define COMPONENTS_TRANSFORM_HPP
+
+namespace r_type::game {
 
 struct Position {
     float x = 0.f;
