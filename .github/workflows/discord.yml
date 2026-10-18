@@ -6,7 +6,6 @@ on:
   pull_request_review:
     types: [submitted]
 
-# Évite que deux événements de la même PR modifient l'état en même temps
 concurrency:
   group: discord-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: false
