@@ -1,16 +1,36 @@
-#ifndef TAGS_HPP
-    #define TAGS_HPP
+/*
+** EPITECH PROJECT, 2026
+** T-type
+** File description:
+** Tags.hpp
+*/
 
-namespace r_type {
+#ifndef COMPONENTS_TAGS_HPP
+    #define COMPONENTS_TAGS_HPP
+
+    #include <cstdint>
+
+namespace r_type::game {
 
 struct Player {
-    int id = 0;
+    int id = 1;
 };
 
 struct Enemy {};
 
 struct Projectile {
     bool fromPlayer = true;
+};
+
+enum class EntityKind : std::uint8_t {
+    Player = 0,
+    Enemy = 1,
+    PlayerMissile = 2,
+    EnemyMissile = 3
+};
+
+struct Kind {
+    EntityKind value = EntityKind::Player;
 };
 
 }
