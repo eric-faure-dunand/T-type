@@ -1,0 +1,12 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- CPM: Adding package asio@ (asio-1-38-2)
+-- asio include: /home/soha/Delivery/tek_3/SoftwareArchitectureEngineering/T-type/build/_deps/asio-src/include
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- CPM: Adding package raylib@5.5 (5.5)
