@@ -44,6 +44,7 @@ Part 1 constraints:
 | `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 13 | Create or refresh an entity representation |
 | `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
 | `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
+| `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | Tell a client which entity it controls |
 | `0x30` | `ACK` | Reserved | — | — | Future reliable delivery; not used in Part 1 |
 | `0x84` | `ERROR` | Both | Server, Room | 2 | Report a rejected datagram to its sender |
 
@@ -184,6 +185,17 @@ Unknown IDs may be ignored. The server **must not reuse an entity ID during a ga
 | 0 | `entity_count` | uint32 | Must match the begin marker and the number of collected unique entity IDs |
 
 A matching count alone does **not** prove the transfer is complete. The rules in §3.1 apply. Part 1 does not implement reliable snapshot transfer; explicit transfer IDs, retransmission of individual fragments, and robust recovery are Part 2 candidates.
+
+### `PLAYER_CREATION` (`0x25`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | Player entity controlled by this client |
+| 4 | `x` | int32 | Initial authoritative X coordinate |
+| 8 | `y` | int32 | Initial authoritative Y coordinate |
+| 12 | `color` | uint8 | Player colour index, `0` to `3` |
+
+Sent by the room to one client only, right after it accepted its `CONNECT_REQUEST`. It is the only way for a client to learn the `entity_id` to put in `PLAYER_INPUT` and `DISCONNECT_ROOM`; until it is received, the client sends no input. The other clients learn about this player through a regular `ENTITY_SPAWN`. A duplicate `PLAYER_CREATION` for the same entity must not create a second entity.
 
 ### `ERROR` (`0x84`)
 
