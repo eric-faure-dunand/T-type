@@ -78,6 +78,11 @@ struct CommandInfo {
     bool reserved = false;
 };
 
+enum class InputState : std::uint8_t {
+    Pressed = 0x01,
+    Released = 0x00
+};
+
 const CommandInfo *FindCommand(std::uint8_t code);
 std::size_t ArgSize(ArgType type);
 std::size_t SchemaSize(const std::vector<ArgType>& schema);

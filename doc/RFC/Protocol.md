@@ -38,7 +38,7 @@ Part 1 constraints:
 | `0x07` | `LIST_ROOMS` | Client → Server | Server | 0 | Ask for the rooms with free slots |
 | `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | List the rooms with free slots |
 | `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | Leave the room, giving the player entity |
-| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 5 | Submit input for a controlled entity |
+| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | Submit input press/release events for a controlled entity |
 | `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | Begin an initial state transfer |
 | `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 | Publish authoritative entity position |
 | `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 13 | Create or refresh an entity representation |
@@ -134,6 +134,9 @@ Sent by a client to its room to leave it. Never answered. The room removes the s
 |---:|---|---|---|
 | 0 | `entity_id` | uint32 | Entity the client intends to control |
 | 4 | `input_flags` | uint8 | Movement and fire bitmask |
+| 5 | `input_state` | uint8 | `0x00` = Released, `0x01` = Pressed |
+
+The client sends a `Pressed` event when an input is activated and a `Released` event when it is deactivated. The server maintains the active input state between events until the corresponding release is received.
 
 The server checks that the sender is allowed to control `entity_id`. Input flags are requests, never a client-provided resulting position. Input rate limiting and replay handling belong in the server implementation.
 
@@ -233,19 +236,24 @@ The existing header and payloads remain unchanged. To make the initial transfer 
 
 ## 4. Example: move upward
 
-A client controls entity `130` and presses UP (`0x01`). Example header: sequence number `1`, sequence length `1` (fragment 1 of 1), size `5`.
+A client controls entity `130` and presses UP (`0x01`). Example header: sequence number `1`, sequence length `1` (fragment 1 of 1), size `6`.
 
 ```text
 52 54             # Magic: RT
 10                # PLAYER_INPUT
 00 00 00 01       # Sequence number = 1 (fragment index)
 00 00 00 01       # Sequence length = 1 (fragment count)
-00 05             # Payload size = 5
+00 06             # Payload size = 6
 00 00 00 82       # Entity ID = 130
 01                # UP flag
+01                # Pressed
 ```
 
-Total: 18 bytes. The server validates the input and later sends an `ENTITY_UPDATE` with the authoritative position; it does not blindly forward a client-computed displacement.
+Total: 19 bytes.
+
+When the player releases UP, the client sends another `PLAYER_INPUT` packet with the same entity ID and input flag, but with `input_state = 0x00` (Released).
+
+The server validates the input and updates the active input state. The game loop uses this state to calculate movement and sends authoritative `ENTITY_UPDATE` messages.
 
 ## 5. Validation and error handling
 

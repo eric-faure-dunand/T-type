@@ -21,8 +21,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::RoomList, {Direction::ServerToClient, {ArgType::U32, ArgType::U8}, true}},
     // entity_id
     {Command::DisconnectRoom, {Direction::ClientToServer, {ArgType::U32}}},
-    // entity_id, input_flags
-    {Command::PlayerInput, {Direction::ClientToServer, {ArgType::U32, ArgType::U8}}},
+    // entity_id, input_flags, input_state
+    {Command::PlayerInput, {Direction::ClientToServer, {ArgType::U32, ArgType::U8, ArgType::U8}}},
     // entity_count
     {Command::InitialStateBegin, {Direction::ServerToClient, {ArgType::U32}}},
     // entity_id, x, y
