@@ -55,6 +55,7 @@ target_include_directories(r-type_server
         project/include/shared/Error
         project/include/shared/Network
         project/include/shared/Printer
+        project/include/shared/ECS
 )
 
 target_link_libraries(r-type_server PRIVATE asio)
