@@ -12,6 +12,7 @@
     #include "sig.hpp"
     #include "clock.hpp"
     #include "network.hpp"
+    #include "Registry.hpp"
 
 namespace r_type {
 
@@ -37,6 +38,8 @@ class Room {
     Clock _clock;
     std::thread _thread;
     std::deque<PlayerInputEvent> _pendingInputs;
+
+    ecs::Registry registre;
 
     void Run();
 
