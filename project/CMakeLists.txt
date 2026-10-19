@@ -18,8 +18,6 @@ target_compile_features(r_type_loop INTERFACE cxx_std_20)
 # Render module, graphics-library free: IRenderer, Sprite, TextureManager,
 # renderSystem, IKeyboard. Always built, so it is testable without Raylib.
 add_library(r_type_render STATIC
-    src/client/Render/TextureManager.cpp
-    src/client/Render/RenderSystem.cpp)
 add_library(r_type::render ALIAS r_type_render)
 target_link_libraries(r_type_render PUBLIC r_type::ecs)
 target_compile_features(r_type_render PUBLIC cxx_std_20)
