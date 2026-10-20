@@ -109,6 +109,17 @@ Whenever a client leaves the list of a host socket, the `DISCONNECT` handlers of
 | The host kicked it with `Disconnect(endpoint)` | Right away |
 | `RemoveClient(endpoint)` was called (by the room's `DISCONNECT_ROOM` handler, or by the `Core` because the client left the server) | At the next `Poll()` of that socket, in the thread that polls it |
 
+### Destruction
+
+When a `UdpSocket` is destroyed with its socket open, it says goodbye before closing:
+
+| Socket | Sends |
+|---|---|
+| Server or room | `DISCONNECT` to every connected client |
+| Client | `DISCONNECT` to the server given to its first `Connect`, even when its current host is a room; the `Core` then removes it from its room, which is notified as above |
+
+A client ignores a `DISCONNECT` that does not come from its current host: when the server stops, a client in a room is warned by its room, which `Core` destroys before the server socket. The destructor never calls the local handlers, since the objects they use may already be destroyed, and never throws.
+
 ### Poll and threads
 
 `Poll()` processes the datagrams already received and returns immediately. Each socket must be polled by one thread, the one that owns it: the `Core` thread for the server, the room thread for a room, the game loop for the client. Handlers run in that thread.
@@ -208,6 +219,6 @@ If the room answers `ERROR FULL` to the `CONNECT_REQUEST`, connect back to the s
 
 ## Known limitations
 
-- A client that crashes without sending `DISCONNECT` is never removed: there is no inactivity timeout yet.
+- A client that crashes or is killed before its `UdpSocket` destructor runs never sends `DISCONNECT`, so it is never removed: there is no inactivity timeout yet.
 - No reliable delivery, no ordering, no fragmentation (RFC §6).
 - The `Core` and room loops do not sleep and use one CPU core each.
