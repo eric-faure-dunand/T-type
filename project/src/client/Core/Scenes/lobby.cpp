@@ -16,7 +16,7 @@ void ClientCore::LobbyFrame(float dt) {
     _refreshTimer += dt;
     if (_refreshTimer >= ROOM_REFRESH_DELAY) {
         _refreshTimer = 0.f;
-        _network.Push(request::ListRooms{});
+        Send(Command::ListRooms, {{}});
     }
 
     DrawCentered("ROOMS", 60, 50, palette::ACCENT);
@@ -28,7 +28,7 @@ void ClientCore::LobbyFrame(float dt) {
     std::optional<std::size_t> clicked;
 
     if (_rooms.empty())
-        DrawCentered("No room available yet. Create one!", 300, 24, palette::TEXT);
+        DrawCentered("No room available yet. Create one!", 300, 24, palette::FOREGROUND);
     for (std::size_t i = 0; i < _rooms.size() && i < visible; i++) {
         const float y = 160.f + static_cast<float>(i) * (rowHeight + 8.f);
         const float mx = _display.MouseX();
@@ -44,7 +44,7 @@ void ClientCore::LobbyFrame(float dt) {
         const RoomInfo& room = _rooms[i];
         const std::string slots = std::to_string(room.freeSlots) + (room.freeSlots > 1 ? " free slots" : " free slot");
         _display.Print("Room " + std::to_string(room.id), static_cast<int>(listX) + 20, static_cast<int>(y) + 13, 22,
-            palette::TEXT);
+            palette::FOREGROUND);
         _display.Print(slots, static_cast<int>(listX) + 580 - _display.TextWidth(slots, 20), static_cast<int>(y) + 14,
             20, palette::DIM);
     }
@@ -64,16 +64,16 @@ void ClientCore::LobbyFrame(float dt) {
         clicked = _selected;
 
     if (clicked) {
-        _network.Push(request::JoinRoom{_rooms[*clicked].id});
+        Send(Command::JoinRoom, {{_rooms[*clicked].id}});
         SetScene(Scene::Joining);
     } else if (create || _display.IsKeyPressed(Key::C)) {
-        _network.Push(request::CreateRoom{});
+        Send(Command::CreateRoom, {{}});
         SetScene(Scene::Joining);
     } else if (refresh || _display.IsKeyPressed(Key::R)) {
-        _network.Push(request::ListRooms{});
+        Send(Command::ListRooms, {{}});
     } else if (back || _display.IsKeyPressed(Key::Escape)) {
-        _network.Push(request::Disconnect{});
-        SetScene(Scene::Menu);
+        SayGoodbye();
+        GoOffline("");
     }
 }
 

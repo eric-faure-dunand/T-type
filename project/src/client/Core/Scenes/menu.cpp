@@ -25,15 +25,14 @@ void ClientCore::MenuFrame() {
     _display.FillRect(boxX, 335.f, 360.f, 56.f, palette::PANEL);
     _display.OutlineRect(boxX, 335.f, 360.f, 56.f, 2.f, palette::ACCENT);
     const bool caret = static_cast<int>(_display.Time() * 2) % 2 == 0;
-    DrawCentered(_ip + (caret ? "_" : " "), 350, 30, palette::TEXT);
+    DrawCentered(_ip + (caret ? "_" : " "), 350, 30, palette::FOREGROUND);
 
     const bool clicked = Button("Connect", static_cast<float>(WINDOW_WIDTH) / 2.f - 100.f, 420.f, 200.f, 50.f);
     DrawCentered("ENTER to connect  -  ESC to quit", 500, 18, palette::DIM);
 
     if ((clicked || _display.IsKeyPressed(Key::Enter)) && !_ip.empty()) {
         _messageTime = 0.f;
-        _network.Push(request::Connect{_ip});
-        SetScene(Scene::Connecting);
+        ConnectServer();
     } else if (_display.IsKeyPressed(Key::Escape)) {
         _quit = true;
     }
