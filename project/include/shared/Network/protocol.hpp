@@ -32,6 +32,7 @@ enum class Command : std::uint8_t {
     EntitySpawn = 0x22,
     EntityDestroy = 0x23,
     InitialStateEnd = 0x24,
+    PlayerCreation = 0x25,
     Ack = 0x30,
     Error = 0x84,
 };
