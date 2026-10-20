@@ -99,7 +99,6 @@ target_include_directories(r-type_client
     PUBLIC
         project/include/client/Core
         project/include/client/Display
-        project/include/client/Network
         project/include/client/World
         project/include/shared
         project/include/shared/Error
