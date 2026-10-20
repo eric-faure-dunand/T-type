@@ -4,8 +4,17 @@ namespace r_type {
 
 Room::Room(std::uint32_t id):
     _id(id), net(Role::Server, DEFAULT_ROOM_CLIENTS, true), _lastAnnounce(std::chrono::steady_clock::now()) {
+    registre.registerComponent<Position>();
+    registre.registerComponent<Player>();
+
+    net.On(Command::ConnectRequest, [this](const Endpoint& from, const ArgsList&) {
+        HandlePlayerConnection(from);
+    });
     net.On(Command::DisconnectRoom, [this](const Endpoint& from, const ArgsList&) {
-        net.RemoveClient(from);
+        HandlePlayerDisconnection(from);
+    });
+    net.On(Command::Disconnect, [this](const Endpoint& from, const ArgsList&) {
+        HandlePlayerDisconnection(from);
     });
     net.On(Command::PlayerInput, [this](const Endpoint& from, const ArgsList& args) {
         HandlePlayerInput(from, args);
@@ -37,7 +46,10 @@ void Room::Stop() {
 void Room::Run() {
     while (SERVER_RUN && _running) {
         if (_clock.Tick()) {
+            ProcessPendingDisconnections();
             net.Poll();
+            UpdatePlayers();
+            BroadcastPlayerUpdates();
             if (net.ClientCount() > 0)
                 _used = true;
         }
@@ -68,7 +80,8 @@ void Room::Announce(const Endpoint& client) {
 }
 
 void Room::RemoveClient(const Endpoint& client) {
-    net.RemoveClient(client);
+    std::lock_guard<std::mutex> lock(_disconnectionMutex);
+    _pendingDisconnections.push_back(client);
 }
 
 }
