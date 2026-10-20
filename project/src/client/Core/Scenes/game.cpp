@@ -44,21 +44,18 @@ static Rgba ColorOf(std::uint32_t id, const Appearance& look) {
         case KIND_PROJECTILE:
             return palette::PROJECTILE;
         default:
-            return palette::UNKNOWN;
+            return palette::OTHER;
     }
 }
 
-void ClientCore::GameFrame() {
-    std::uint8_t held = 0;
-    held |= _display.IsKeyDown(Key::Up) ? INPUT_UP : 0;
-    held |= _display.IsKeyDown(Key::Down) ? INPUT_DOWN : 0;
-    held |= _display.IsKeyDown(Key::Left) ? INPUT_LEFT : 0;
-    held |= _display.IsKeyDown(Key::Right) ? INPUT_RIGHT : 0;
-    held |= _display.IsKeyDown(Key::Space) ? INPUT_FIRE : 0;
-    if (held != _held) {
-        _held = held;
-        _network.Push(request::Input{held});
-    }
+void ClientCore::GameFrame(float dt) {
+    std::set<Action> held;
+    for (const Binding& binding : BINDINGS)
+        if (_display.IsKeyDown(binding.key))
+            held.insert(binding.action);
+    if (held != _held)
+        SetHeld(held);
+    ResendInputs(dt);
 
     DrawEntities();
     _display.Print("ESC to leave the room", 10, 10, 18, palette::DIM);
@@ -67,13 +64,11 @@ void ClientCore::GameFrame() {
         _display.Print("You are player " + std::to_string(*player), 10, 34, 18, color);
     }
     if (_world.Count() == 0)
-        DrawCentered("Waiting for the server...", WINDOW_HEIGHT / 2 - 15, 30, palette::TEXT);
+        DrawCentered("Waiting for the server...", WINDOW_HEIGHT / 2 - 15, 30, palette::FOREGROUND);
 
     if (_display.IsKeyPressed(Key::Escape)) {
-        _held = 0;
-        _network.Push(request::Input{0});
-        _network.Push(request::LeaveRoom{});
-        SetScene(Scene::Leaving);
+        Send(Command::DisconnectRoom, {{_world.Player().value_or(0)}});
+        ReturnToLobby();
     }
 }
 
