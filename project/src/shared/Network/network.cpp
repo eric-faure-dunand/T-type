@@ -13,6 +13,19 @@ static std::uint8_t Code(Command command) {
 UdpSocket::UdpSocket(Role role, std::size_t maxClients, bool room):
     _role(role), _socket(_context), _maxClients(maxClients), _room(room) {}
 
+UdpSocket::~UdpSocket() {
+    if (!_socket.is_open())
+        return;
+    if (_role == Role::Client) {
+        if (_server)
+            Reply(*_server, Command::Disconnect, {{}});
+        return;
+    }
+    std::lock_guard<std::mutex> lock(_mutex);
+    for (const Endpoint& client : _clients)
+        Reply(client, Command::Disconnect, {{}});
+}
+
 void UdpSocket::Open(const Endpoint& local) {
     Close();
     asio::error_code ec;
