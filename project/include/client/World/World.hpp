@@ -14,9 +14,19 @@
     #include <vector>
 
     #include "Registry.hpp"
-    #include "ClientEvents.hpp"
 
 namespace r_type::client {
+
+constexpr std::uint8_t KIND_PLAYER = 0x01;
+constexpr std::uint8_t KIND_ENEMY = 0x02;
+constexpr std::uint8_t KIND_PROJECTILE = 0x03;
+
+struct EntityData {
+    std::uint32_t id = 0;
+    std::uint8_t kind = 0;
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+};
 
 struct NetIdentity {
     std::uint32_t id = 0;
