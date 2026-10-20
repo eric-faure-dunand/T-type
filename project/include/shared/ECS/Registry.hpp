@@ -8,12 +8,14 @@
 #ifndef ECS_REGISTRY_HPP
     #define ECS_REGISTRY_HPP
 
+    #include <algorithm>
     #include <cstddef>
     #include <cstdint>
     #include <memory>
     #include <stdexcept>
     #include <string>
     #include <typeindex>
+    #include <type_traits>
     #include <typeinfo>
     #include <unordered_map>
     #include <utility>
@@ -43,6 +45,9 @@ public:
 };
 
 }
+
+template <class... Components>
+class View;
 
 /**
  * @brief Owns the entities and the component storages.
@@ -86,7 +91,7 @@ public:
         }
         alive_[index] = true;
         ++aliveCount_;
-        return Entity(index, generations_[index]);
+        return makeEntity(index, generations_[index]);
     }
 
     /**
@@ -98,23 +103,59 @@ public:
     {
         checkAlive(e);
         for (auto &entry : storages_)
-            entry.second->erase(e.index());
-        alive_[e.index()] = false;
-        generations_[e.index()] = (generations_[e.index()] + 1u) & Entity::kGenerationMask;
-        freeList_.push_back(e.index());
+            entry.second->erase(entityIndex(e));
+        alive_[entityIndex(e)] = false;
+        generations_[entityIndex(e)] = (generations_[entityIndex(e)] + 1u) & kGenerationMask;
+        freeList_.push_back(entityIndex(e));
         --aliveCount_;
     }
 
     /** @brief True if the handle refers to a currently alive entity. */
     bool alive(Entity e) const noexcept
     {
-        return !e.isNull()
-            && e.index() < kMaxEntities
-            && alive_[e.index()]
-            && generations_[e.index()] == e.generation();
+        return e != Entity::Null
+            && entityIndex(e) < kMaxEntities
+            && alive_[entityIndex(e)]
+            && generations_[entityIndex(e)] == entityGeneration(e);
     }
 
     std::size_t aliveCount() const noexcept { return aliveCount_; }
+
+    /**
+     * @brief Handle of the alive entity living in slot @p index, or Entity::Null.
+     *
+     * Used by iteration to rebuild a full handle (index + generation) from a slot.
+     */
+    Entity entityAt(std::size_t index) const noexcept
+    {
+        if (index >= kMaxEntities || !alive_[index])
+            return Entity::Null;
+        return makeEntity(static_cast<std::uint32_t>(index), generations_[index]);
+    }
+
+    /**
+     * @brief Lightweight object to iterate on the entities having ALL the given components.
+     * @throws std::out_of_range (at each() time) if one of the types is not registered.
+     */
+    template <class... Cs>
+    View<Cs...> view()
+    {
+        return View<Cs...>(*this);
+    }
+
+    /**
+     * @brief Shortcut for view<Cs...>().each(f).
+     *
+     * @code
+     * reg.each<Position, Velocity>([](Position &p, const Velocity &v) { p.x += v.dx; });
+     * reg.each<Position>([](Entity e, Position &p) { ... });   // handle first, if needed
+     * @endcode
+     */
+    template <class... Cs, class F>
+    void each(F &&f)
+    {
+        view<Cs...>().each(std::forward<F>(f));
+    }
 
     /** @brief Registers component type T. Must be done at startup. Idempotent. */
     template <class T>
@@ -134,7 +175,7 @@ public:
     T &add(Entity e, Args &&...args)
     {
         checkAlive(e);
-        return getComponents<T>().emplace(e.index(), std::forward<Args>(args)...);
+        return getComponents<T>().emplace(entityIndex(e), std::forward<Args>(args)...);
     }
 
     /**
@@ -145,14 +186,14 @@ public:
     void remove(Entity e)
     {
         checkAlive(e);
-        getComponents<T>().erase(e.index());
+        getComponents<T>().erase(entityIndex(e));
     }
 
     /** @brief True if the entity is alive and has a T. @throws std::out_of_range unregistered T. */
     template <class T>
     bool has(Entity e) const
     {
-        return alive(e) && getComponents<T>().has(e.index());
+        return alive(e) && getComponents<T>().has(entityIndex(e));
     }
 
     /**
@@ -163,27 +204,27 @@ public:
     T &get(Entity e)
     {
         checkAlive(e);
-        return getComponents<T>()[e.index()];
+        return getComponents<T>()[entityIndex(e)];
     }
 
     template <class T>
     const T &get(Entity e) const
     {
         checkAlive(e);
-        return getComponents<T>()[e.index()];
+        return getComponents<T>()[entityIndex(e)];
     }
 
     /** @brief Pointer to the T of the entity, or nullptr (absent / dead). */
     template <class T>
     T *tryGet(Entity e)
     {
-        return alive(e) ? getComponents<T>().tryGet(e.index()) : nullptr;
+        return alive(e) ? getComponents<T>().tryGet(entityIndex(e)) : nullptr;
     }
 
     template <class T>
     const T *tryGet(Entity e) const
     {
-        return alive(e) ? getComponents<T>().tryGet(e.index()) : nullptr;
+        return alive(e) ? getComponents<T>().tryGet(entityIndex(e)) : nullptr;
     }
 
     /**
@@ -225,6 +266,70 @@ private:
     std::size_t nextIndex_ = 0;
     std::size_t aliveCount_ = 0;
     std::unordered_map<std::type_index, std::unique_ptr<detail::IComponentStorage>> storages_;
+};
+
+namespace detail {
+
+template <class...>
+struct AllDifferent : std::true_type {};
+
+template <class T, class... Rest>
+struct AllDifferent<T, Rest...>
+    : std::bool_constant<(!std::is_same_v<T, Rest> && ...) && AllDifferent<Rest...>::value> {};
+
+}
+
+/**
+ * @brief Iteration on every entity that has ALL the components Cs.
+ *
+ * The callback is invoked as f(Entity, Cs&...) or, if it does not need the
+ * handle, f(Cs&...). Entities are visited in ascending slot-index order.
+ *
+ * Behaviour while iterating (see docs/ecs.md):
+ *  - modifying the components you receive is always fine;
+ *  - removing a component or killing an entity that has NOT been visited yet
+ *    is safe: it is simply not visited;
+ *  - after removing a component of / killing the CURRENT entity, do not use the
+ *    references you received for it any more;
+ *  - entities spawned or components added during the pass are memory-safe
+ *    (storages never reallocate) but may or may not be visited by this pass.
+ */
+template <class... Cs>
+class View {
+    static_assert(sizeof...(Cs) > 0, "View needs at least one component type");
+    static_assert(detail::AllDifferent<Cs...>::value, "View: component types must be distinct");
+
+public:
+    explicit View(Registry &registry) : registry_(&registry) {}
+
+    /** @throws std::out_of_range if one of the component types is not registered. */
+    template <class F>
+    void each(F &&f)
+    {
+        run(f, registry_->getComponents<Cs>()...);
+    }
+
+private:
+    template <class F>
+    void run(F &f, SparseArray<Cs> &...arrays)
+    {
+        if (((arrays.count() == 0) || ...))
+            return;
+        const std::size_t limit = std::min({arrays.size()...});
+        for (std::size_t i = 0; i < limit; ++i) {
+            if (!(arrays.has(i) && ...))
+                continue;
+            if constexpr (std::is_invocable_v<F &, Entity, Cs &...>) {
+                f(registry_->entityAt(i), arrays[i]...);
+            } else {
+                static_assert(std::is_invocable_v<F &, Cs &...>,
+                    "View::each callback must accept (Entity, Cs&...) or (Cs&...)");
+                f(arrays[i]...);
+            }
+        }
+    }
+
+    Registry *registry_;
 };
 
 }

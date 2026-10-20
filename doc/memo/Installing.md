@@ -24,3 +24,4 @@
 - cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake
 - cmake --build build
 - ctest --test-dir build --output-on-failure
+

@@ -2,3 +2,6 @@
 .obsidian/
 build/
 r-type_server
+cmake.log
+r-type_client
+r-type_demo
