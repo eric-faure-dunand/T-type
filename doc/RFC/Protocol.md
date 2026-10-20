@@ -23,7 +23,7 @@ Part 1 constraints:
 
 **Coordinates:** `x` and `y` are integer world coordinates in game units (the initial implementation may use pixel-equivalent units). Position is absolute, not a relative delta. The world origin and coordinate bounds are determined by the gameplay implementation and must be validated server-side.
 
-**Input flags:** one byte, with bit 0 = up, bit 1 = down, bit 2 = left, bit 3 = right, bit 4 = fire; bits 5–7 must be zero. Multiple bits may be set. Conflicting opposite directions are resolved by the server (for example, cancel each other).
+**Input actions:** one byte identifying a single action: `0x00` = up, `0x01` = down, `0x02` = left, `0x03` = right, `0x04` = fire; `0x05`–`0xFF` are reserved for future actions. Each `PLAYER_INPUT` carries exactly one action, so up to 256 actions can be added without changing the field type. Conflicting opposite directions held at the same time are resolved by the server (for example, cancel each other).
 
 ## 2. Command registry
 
@@ -134,12 +134,14 @@ Sent by a client to its room to leave it. Never answered. The room removes the s
 | Offset | Field | Type | Description |
 |---:|---|---|---|
 | 0 | `entity_id` | uint32 | Entity the client intends to control |
-| 4 | `input_flags` | uint8 | Movement and fire bitmask |
+| 4 | `action` | uint8 | One action, see *Input actions* (§1) |
 | 5 | `input_state` | uint8 | `0x00` = Released, `0x01` = Pressed |
 
-The client sends a `Pressed` event when an input is activated and a `Released` event when it is deactivated. The server maintains the active input state between events until the corresponding release is received.
+The client sends a `Pressed` event when an action is activated and a `Released` event when it is deactivated, one `PLAYER_INPUT` per action: if several actions change at the same time, several packets are sent. The server maintains the state of each action between events until the corresponding release is received. A reserved action code is ignored by the server.
 
-The server checks that the sender is allowed to control `entity_id`. Input flags are requests, never a client-provided resulting position. Input rate limiting and replay handling belong in the server implementation.
+Because UDP can lose packets, the client repeats the `Pressed` event of every held action periodically (every 100 ms), and repeats each `Released` event a few times after the release (3 times, every 100 ms). Both are idempotent for the server.
+
+The server checks that the sender is allowed to control `entity_id`. Actions are requests, never a client-provided resulting position. Input rate limiting and replay handling belong in the server implementation.
 
 ### `INITIAL_STATE_BEGIN` (`0x20`)
 
@@ -248,7 +250,7 @@ The existing header and payloads remain unchanged. To make the initial transfer 
 
 ## 4. Example: move upward
 
-A client controls entity `130` and presses UP (`0x01`). Example header: sequence number `1`, sequence length `1` (fragment 1 of 1), size `6`.
+A client controls entity `130` and presses UP (action `0x00`). Example header: sequence number `1`, sequence length `1` (fragment 1 of 1), size `6`.
 
 ```text
 52 54             # Magic: RT
@@ -257,13 +259,13 @@ A client controls entity `130` and presses UP (`0x01`). Example header: sequence
 00 00 00 01       # Sequence length = 1 (fragment count)
 00 06             # Payload size = 6
 00 00 00 82       # Entity ID = 130
-01                # UP flag
+00                # Action = UP
 01                # Pressed
 ```
 
 Total: 19 bytes.
 
-When the player releases UP, the client sends another `PLAYER_INPUT` packet with the same entity ID and input flag, but with `input_state = 0x00` (Released).
+When the player releases UP, the client sends another `PLAYER_INPUT` packet with the same entity ID and action, but with `input_state = 0x00` (Released).
 
 The server validates the input and updates the active input state. The game loop uses this state to calculate movement and sends authoritative `ENTITY_UPDATE` messages.
 

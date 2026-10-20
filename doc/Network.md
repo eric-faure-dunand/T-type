@@ -30,7 +30,7 @@ using ArgsList = std::vector<Args>;
 - The C++ type of each argument must match the schema: `42u` is a `uint32`, `-100` an `int32`, and a `uint8` must be written `std::uint8_t{1}`. A mismatch throws `Error`.
 
 ```cpp
-net.Send(Command::PlayerInput, {{entityId, std::uint8_t{0x01}}});   // entity_id u32, input_flags u8
+net.Send(Command::PlayerInput, {{entityId, std::uint8_t{0x00}, std::uint8_t{0x01}}});   // entity_id u32, action u8, input_state u8
 auto id = std::get<std::uint32_t>(args[0][0]);                      // first argument of the first record
 ```
 
