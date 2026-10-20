@@ -8,11 +8,13 @@
     #include <thread>
     #include <iostream>
     #include <deque>
+    #include <mutex>
 
     #include "sig.hpp"
     #include "clock.hpp"
     #include "network.hpp"
     #include "Registry.hpp"
+    #include "Components/PlayerComponents.hpp"
 
 namespace r_type {
 
@@ -38,13 +40,26 @@ class Room {
     Clock _clock;
     std::thread _thread;
     std::deque<PlayerInputEvent> _pendingInputs;
+    std::mutex _disconnectionMutex;
+    std::deque<Endpoint> _pendingDisconnections;
 
     ecs::Registry registre;
+
+    std::map<Endpoint, ecs::Entity> _players;
 
     void Run();
 
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
     void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
+    void HandlePlayerConnection(const Endpoint& from);
+    void SendInitialState(const Endpoint& client);
+    void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);
+    void HandlePlayerDisconnection(const Endpoint& from);
+
+    void UpdatePlayers();
+    void BroadcastPlayerUpdates();
+
+    void ProcessPendingDisconnections();
 
 public:
     explicit Room(std::uint32_t id);
