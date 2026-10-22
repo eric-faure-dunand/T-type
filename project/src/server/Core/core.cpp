@@ -62,7 +62,6 @@ void Core::JoinRoom(const Endpoint& client, std::uint32_t roomId) {
         Refuse(client, NetError::AlreadyInRoom, Command::JoinRoom);
         return;
     }
-    LeaveRooms(client);
     (*it)->Announce(client);
     Reply(client, Command::RoomJoined, {{static_cast<std::uint32_t>((*it)->Port())}});
 }

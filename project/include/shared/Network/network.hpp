@@ -61,7 +61,7 @@ class UdpSocket {
 
 public:
     explicit UdpSocket(Role role, std::size_t maxClients = 0, bool room = false);
-    ~UdpSocket() = default;
+    ~UdpSocket();
 
     UdpSocket(const UdpSocket&) = delete;
     UdpSocket& operator=(const UdpSocket&) = delete;

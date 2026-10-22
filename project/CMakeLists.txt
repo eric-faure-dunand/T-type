@@ -3,7 +3,7 @@ set(RTYPE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # ECS core: header-only for now, no Raylib, no Asio.
 # When src/shared/Systems/*.cpp appears, add an `r_type_shared` STATIC library
-# (linking r_type_ecs) used by the server, the client and the demo.
+# (linking r_type_ecs) used by the server and the client.
 add_library(r_type_ecs INTERFACE)
 add_library(r_type::ecs ALIAS r_type_ecs)
 target_include_directories(r_type_ecs INTERFACE ${RTYPE_INCLUDE_DIR})
@@ -18,8 +18,6 @@ target_compile_features(r_type_loop INTERFACE cxx_std_20)
 # Render module, graphics-library free: IRenderer, Sprite, TextureManager,
 # renderSystem, IKeyboard. Always built, so it is testable without Raylib.
 add_library(r_type_render STATIC
-    src/client/Render/TextureManager.cpp
-    src/client/Render/RenderSystem.cpp)
 add_library(r_type::render ALIAS r_type_render)
 target_link_libraries(r_type_render PUBLIC r_type::ecs)
 target_compile_features(r_type_render PUBLIC cxx_std_20)
@@ -51,20 +49,6 @@ if(RTYPE_BUILD_CLIENT)
         target_compile_options(r_type_raylib_backend PRIVATE /W4)
     else()
         target_compile_options(r_type_raylib_backend PRIVATE -Wall -Wextra -Wpedantic)
-    endif()
-
-    # Visual check of the render module: ./build/demo/render_demo [display_fps] [image]
-    add_executable(render_demo src/demo/render_demo.cpp)
-    target_link_libraries(render_demo PRIVATE r_type::raylib_backend r_type::loop)
-    set_target_properties(render_demo PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/demo")
-    foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
-        string(TOUPPER ${CONFIG} CONFIG_UPPER)
-        set_target_properties(render_demo PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER} "${CMAKE_BINARY_DIR}/demo")
-    endforeach()
-    if(MSVC)
-        target_compile_options(render_demo PRIVATE /W4)
-    else()
-        target_compile_options(render_demo PRIVATE -Wall -Wextra -Wpedantic)
     endif()
 endif()
 

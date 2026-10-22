@@ -2,4 +2,5 @@
 .obsidian/
 build/
 r-type_server
-r-type_demo
+cmake.log
+r-type_client

@@ -55,6 +55,7 @@ target_include_directories(r-type_server
         project/include/shared/Error
         project/include/shared/Network
         project/include/shared/Printer
+        project/include/shared/ECS
 )
 
 target_link_libraries(r-type_server PRIVATE asio)
@@ -73,28 +74,56 @@ if(WIN32)
         NOMINMAX
     )
 endif()
-## demo (local gameplay, no network)
 
-option(RTYPE_BUILD_DEMO "Build the local gameplay demo (needs Raylib)" ON)
-if(RTYPE_BUILD_DEMO)
-    enable_language(C)
-    CPMAddPackage(
-        NAME raylib
-        GITHUB_REPOSITORY raysan5/raylib
-        GIT_TAG 5.5
-        VERSION 5.5
-        OPTIONS
-            "BUILD_EXAMPLES OFF"
-            "BUILD_SHARED_LIBS OFF"
+## client
+
+enable_language(C)
+CPMAddPackage(
+    NAME raylib
+    GITHUB_REPOSITORY raysan5/raylib
+    GIT_TAG 5.5
+    VERSION 5.5
+    OPTIONS
+        "BUILD_EXAMPLES OFF"
+        "BUILD_SHARED_LIBS OFF"
+)
+
+file(GLOB_RECURSE CLIENT_SRCS CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/project/src/client/*.cpp
+    ${CMAKE_SOURCE_DIR}/project/src/shared/*.cpp
+)
+
+add_executable(r-type_client ${CLIENT_SRCS})
+
+target_include_directories(r-type_client
+    PUBLIC
+        project/include/client/Core
+        project/include/client/Display
+        project/include/client/World
+        project/include/shared
+        project/include/shared/Error
+        project/include/shared/Network
+        project/include/shared/Printer
+        project/include/shared/ECS
+)
+
+target_link_libraries(r-type_client PRIVATE asio raylib)
+
+if(MSVC)
+    target_compile_options(r-type_client PRIVATE /W4 /WX /permissive-)
+else()
+    target_compile_options(r-type_client PRIVATE -Wall -Wextra -Werror)
+endif()
+
+if(WIN32)
+    target_link_libraries(r-type_client PRIVATE ws2_32 wsock32)
+    target_compile_definitions(r-type_client PRIVATE
+        _WIN32_WINNT=0x0A00
+        WIN32_LEAN_AND_MEAN
+        NOMINMAX
     )
-
-    add_executable(r-type_demo ${CMAKE_SOURCE_DIR}/project/src/demo/main.cpp)
-    target_include_directories(r-type_demo PRIVATE project/include)
-    target_link_libraries(r-type_demo PRIVATE raylib)
-
     if(MSVC)
-        target_compile_options(r-type_demo PRIVATE /W4)
-    else()
-        target_compile_options(r-type_demo PRIVATE -Wall -Wextra -Werror)
+        set_target_properties(r-type_client PROPERTIES WIN32_EXECUTABLE ON)
+        target_link_options(r-type_client PRIVATE /ENTRY:mainCRTStartup)
     endif()
 endif()
