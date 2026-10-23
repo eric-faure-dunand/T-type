@@ -11,9 +11,9 @@
     #include <cstdint>
     #include <random>
 
-    #include "shared/ECS/Registry.hpp"
-    #include "shared/Game/GameConfig.hpp"
-    #include "shared/Game/Spawner.hpp"
+    #include "Registry.hpp"
+    #include "GameConfig.hpp"
+    #include "Spawner.hpp"
 
 namespace r_type::game {
 

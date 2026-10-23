@@ -8,11 +8,11 @@
 #ifndef SYSTEMS_PLAYER_CONTROL_HPP
     #define SYSTEMS_PLAYER_CONTROL_HPP
 
-    #include "shared/ECS/Registry.hpp"
-    #include "shared/Components/Input.hpp"
-    #include "shared/Components/Tags.hpp"
-    #include "shared/Components/Transform.hpp"
-    #include "shared/Game/GameConfig.hpp"
+    #include "Registry.hpp"
+    #include "Input.hpp"
+    #include "Tags.hpp"
+    #include "Transform.hpp"
+    #include "GameConfig.hpp"
 
 namespace r_type::game {
 

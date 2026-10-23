@@ -8,8 +8,8 @@
 #ifndef SYSTEMS_MOVEMENT_HPP
     #define SYSTEMS_MOVEMENT_HPP
 
-    #include "shared/ECS/Registry.hpp"
-    #include "shared/Components/Transform.hpp"
+    #include "Registry.hpp"
+    #include "Transform.hpp"
 
 namespace r_type::game {
 

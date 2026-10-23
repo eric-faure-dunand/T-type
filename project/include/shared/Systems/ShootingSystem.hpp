@@ -10,14 +10,14 @@
 
     #include <vector>
 
-    #include "shared/ECS/Registry.hpp"
-    #include "shared/Components/Combat.hpp"
-    #include "shared/Components/Input.hpp"
-    #include "shared/Components/Tags.hpp"
-    #include "shared/Components/Transform.hpp"
-    #include "shared/Components/Weapon.hpp"
-    #include "shared/Game/GameConfig.hpp"
-    #include "shared/Game/Spawner.hpp"
+    #include "Registry.hpp"
+    #include "Combat.hpp"
+    #include "Input.hpp"
+    #include "Tags.hpp"
+    #include "Transform.hpp"
+    #include "Weapon.hpp"
+    #include "GameConfig.hpp"
+    #include "Spawner.hpp"
 
 namespace r_type::game {
 

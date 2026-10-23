@@ -56,6 +56,9 @@ target_include_directories(r-type_server
         project/include/shared/Network
         project/include/shared/Printer
         project/include/shared/ECS
+        project/include/shared/Components
+        project/include/shared/Systems
+        project/include/shared/Game
 )
 
 target_link_libraries(r-type_server PRIVATE asio)

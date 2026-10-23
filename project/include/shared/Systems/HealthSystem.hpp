@@ -10,8 +10,8 @@
 
     #include <vector>
 
-    #include "shared/ECS/Registry.hpp"
-    #include "shared/Components/Combat.hpp"
+    #include "Registry.hpp"
+    #include "Combat.hpp"
 
 namespace r_type::game {
 

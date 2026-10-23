@@ -8,12 +8,12 @@
 #ifndef GAME_SPAWNER_HPP
     #define GAME_SPAWNER_HPP
 
-    #include "shared/ECS/Registry.hpp"
-    #include "shared/Components/Combat.hpp"
-    #include "shared/Components/Input.hpp"
-    #include "shared/Components/Tags.hpp"
-    #include "shared/Components/Transform.hpp"
-    #include "shared/Components/Weapon.hpp"
+    #include "Registry.hpp"
+    #include "Combat.hpp"
+    #include "Input.hpp"
+    #include "Tags.hpp"
+    #include "Transform.hpp"
+    #include "Weapon.hpp"
     #include "GameConfig.hpp"
 
 namespace r_type::game {
