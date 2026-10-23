@@ -12,25 +12,14 @@
     #include <random>
 
     #include "Registry.hpp"
-    #include "GameConfig.hpp"
-    #include "Spawner.hpp"
 
 namespace r_type::game {
 
 class EnemySpawnSystem {
 public:
-    explicit EnemySpawnSystem(std::uint32_t seed) : rng_(seed) {}
+    explicit EnemySpawnSystem(std::uint32_t seed);
 
-    void operator()(ecs::Registry &r, float dt)
-    {
-        timer_ -= dt;
-        if (timer_ > 0.f)
-            return;
-        timer_ += kEnemySpawnInterval;
-        std::uniform_real_distribution<float> height(0.f, kWorldHeight - kEnemySize);
-        std::uniform_real_distribution<float> firstShot(0.2f, 1.f / kEnemyFireRate);
-        spawnEnemy(r, kWorldWidth, height(rng_), firstShot(rng_));
-    }
+    void operator()(ecs::Registry &r, float dt);
 
 private:
     std::mt19937 rng_;
