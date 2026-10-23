@@ -12,6 +12,8 @@
     #include <random>
 
     #include "Registry.hpp"
+    #include "GameConfig.hpp"
+    #include "Spawner.hpp"
 
 namespace r_type::game {
 

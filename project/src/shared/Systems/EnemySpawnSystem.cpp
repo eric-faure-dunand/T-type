@@ -6,8 +6,6 @@
 */
 
 #include "EnemySpawnSystem.hpp"
-#include "GameConfig.hpp"
-#include "Spawner.hpp"
 
 namespace r_type::game {
 

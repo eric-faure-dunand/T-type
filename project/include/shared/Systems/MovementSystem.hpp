@@ -9,6 +9,7 @@
     #define SYSTEMS_MOVEMENT_HPP
 
     #include "Registry.hpp"
+    #include "Transform.hpp"
 
 namespace r_type::game {
 

@@ -5,10 +5,7 @@
 ** CollisionSystem.cpp
 */
 
-#include <vector>
-
 #include "CollisionSystem.hpp"
-#include "Tags.hpp"
 
 namespace r_type::game {
 

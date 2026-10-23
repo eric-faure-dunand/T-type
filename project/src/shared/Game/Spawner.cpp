@@ -6,12 +6,6 @@
 */
 
 #include "Spawner.hpp"
-#include "Combat.hpp"
-#include "GameConfig.hpp"
-#include "Input.hpp"
-#include "Tags.hpp"
-#include "Transform.hpp"
-#include "Weapon.hpp"
 
 namespace r_type::game {
 

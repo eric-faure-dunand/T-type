@@ -6,7 +6,6 @@
 */
 
 #include "MovementSystem.hpp"
-#include "Transform.hpp"
 
 namespace r_type::game {
 

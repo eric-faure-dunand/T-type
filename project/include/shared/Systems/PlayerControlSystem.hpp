@@ -9,6 +9,10 @@
     #define SYSTEMS_PLAYER_CONTROL_HPP
 
     #include "Registry.hpp"
+    #include "GameConfig.hpp"
+    #include "Input.hpp"
+    #include "Tags.hpp"
+    #include "Transform.hpp"
 
 namespace r_type::game {
 

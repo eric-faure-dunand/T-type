@@ -5,16 +5,7 @@
 ** ShootingSystem.cpp
 */
 
-#include <vector>
-
 #include "ShootingSystem.hpp"
-#include "Combat.hpp"
-#include "GameConfig.hpp"
-#include "Input.hpp"
-#include "Spawner.hpp"
-#include "Tags.hpp"
-#include "Transform.hpp"
-#include "Weapon.hpp"
 
 namespace r_type::game {
 

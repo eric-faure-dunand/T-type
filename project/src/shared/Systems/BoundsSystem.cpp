@@ -5,14 +5,7 @@
 ** BoundsSystem.cpp
 */
 
-#include <algorithm>
-#include <vector>
-
 #include "BoundsSystem.hpp"
-#include "Combat.hpp"
-#include "GameConfig.hpp"
-#include "Tags.hpp"
-#include "Transform.hpp"
 
 namespace r_type::game {
 

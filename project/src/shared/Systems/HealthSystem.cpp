@@ -5,10 +5,7 @@
 ** HealthSystem.cpp
 */
 
-#include <vector>
-
 #include "HealthSystem.hpp"
-#include "Combat.hpp"
 
 namespace r_type::game {
 

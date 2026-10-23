@@ -8,9 +8,12 @@
 #ifndef SYSTEMS_COLLISION_HPP
     #define SYSTEMS_COLLISION_HPP
 
+    #include <vector>
+
     #include "Registry.hpp"
     #include "Combat.hpp"
     #include "Transform.hpp"
+    #include "Tags.hpp"
 
 namespace r_type::game {
 
