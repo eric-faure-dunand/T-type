@@ -66,7 +66,7 @@ while (running) {
 
 `sleep_for` may oversleep: it does not matter, the accumulator catches up on the next call.
 
-## Client / demo loop (with rendering)
+## Client loop (with rendering)
 
 ```cpp
 while (!WindowShouldClose()) {
@@ -181,7 +181,7 @@ while (running) {
 
 `sleep_for` may oversleep: it does not matter, the accumulator catches up on the next call.
 
-## Client / demo loop (with rendering)
+## Client loop (with rendering)
 
 ```cpp
 while (!WindowShouldClose()) {
