@@ -38,6 +38,10 @@ void Room::UpdatePlayers() {
             case 3:
                 position.x += PLAYER_SPEED;
                 break;
+            case 4:
+                if (input.state == InputState::Pressed)
+                    HandlePlayerShoot(entity);
+                break;
             default:
                 break;
         }

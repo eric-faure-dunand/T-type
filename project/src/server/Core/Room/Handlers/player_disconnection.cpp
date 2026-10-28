@@ -24,6 +24,7 @@ void Room::HandlePlayerDisconnection(const Endpoint& from) {
             continue;
         net.SendTo(endpoint, Command::EntityDestroy, {{entityId}});
     }
+    _lastShotTime.erase(entityId);
     if (registre.alive(entity))
         registre.kill(entity);
     _players.erase(it);
