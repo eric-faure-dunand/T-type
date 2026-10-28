@@ -9,12 +9,14 @@
     #include <iostream>
     #include <deque>
     #include <mutex>
+    #include <unordered_map>
 
     #include "sig.hpp"
     #include "clock.hpp"
     #include "network.hpp"
     #include "Registry.hpp"
     #include "Components/PlayerComponents.hpp"
+    #include "Components/ProjectileComponents.hpp"
 
 namespace r_type {
 
@@ -47,17 +49,23 @@ class Room {
 
     std::map<Endpoint, ecs::Entity> _players;
 
+    std::unordered_map<std::uint32_t, std::chrono::steady_clock::time_point> _lastShotTime;
+
     void Run();
 
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
     void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
+    void HandlePlayerShoot(ecs::Entity playerEntity);
     void HandlePlayerConnection(const Endpoint& from);
     void SendInitialState(const Endpoint& client);
     void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);
     void HandlePlayerDisconnection(const Endpoint& from);
 
     void UpdatePlayers();
+    void UpdateProjectiles();
+    void DestroyOutOfBoundsProjectiles();
     void BroadcastPlayerUpdates();
+    void BroadcastProjectileUpdates();
 
     void ProcessPendingDisconnections();
 

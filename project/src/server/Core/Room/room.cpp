@@ -1,3 +1,10 @@
+/*
+** EPITECH PROJECT, 2026
+** T-type
+** File description:
+** room.cpp
+*/
+
 #include "room.hpp"
 
 namespace r_type {
@@ -6,6 +13,7 @@ Room::Room(std::uint32_t id):
     _id(id), net(Role::Server, DEFAULT_ROOM_CLIENTS, true), _lastAnnounce(std::chrono::steady_clock::now()) {
     registre.registerComponent<Position>();
     registre.registerComponent<Player>();
+    registre.registerComponent<Projectile>();
 
     net.On(Command::ConnectRequest, [this](const Endpoint& from, const ArgsList&) {
         HandlePlayerConnection(from);
@@ -49,7 +57,10 @@ void Room::Run() {
             ProcessPendingDisconnections();
             net.Poll();
             UpdatePlayers();
+            UpdateProjectiles();
+            DestroyOutOfBoundsProjectiles();
             BroadcastPlayerUpdates();
+            BroadcastProjectileUpdates();
             if (net.ClientCount() > 0)
                 _used = true;
         }
