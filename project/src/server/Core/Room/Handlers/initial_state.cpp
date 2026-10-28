@@ -10,7 +10,12 @@
 namespace r_type {
 
 void Room::SendInitialState(const Endpoint& client) {
-    const std::uint32_t count = static_cast<std::uint32_t>(_players.size());
+    std::uint32_t count = static_cast<std::uint32_t>(_players.size());
+    registre.each<Position, Projectile>(
+        [&count](const Position&, const Projectile&) {
+            ++count;
+        }
+    );
     net.SendTo(client, Command::InitialStateBegin, {{count}});
     for (const auto& [endpoint, entity] : _players) {
         if (!registre.alive(entity))
@@ -23,6 +28,16 @@ void Room::SendInitialState(const Endpoint& client) {
             position.y
         }});
     }
+    registre.each<Position, Projectile>(
+        [this, &client](ecs::Entity entity, const Position& position, const Projectile&) {
+            net.SendTo(client, Command::EntitySpawn, {{
+                ecs::entityValue(entity),
+                std::uint8_t{2},
+                position.x,
+                position.y
+            }});
+        }
+    );
     net.SendTo(client, Command::InitialStateEnd, {{count}});
 }
 
