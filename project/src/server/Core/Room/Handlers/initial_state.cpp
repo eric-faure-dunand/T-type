@@ -21,11 +21,13 @@ void Room::SendInitialState(const Endpoint& client) {
         if (!registre.alive(entity))
             continue;
         const Position& position = registre.get<Position>(entity);
+        const Player& player = registre.get<Player>(entity);
         net.SendTo(client, Command::EntitySpawn, {{
             ecs::entityValue(entity),
             std::uint8_t{1},
             position.x,
-            position.y
+            position.y,
+            player.color
         }});
     }
     registre.each<Position, Projectile>(
@@ -34,7 +36,8 @@ void Room::SendInitialState(const Endpoint& client) {
                 ecs::entityValue(entity),
                 std::uint8_t{2},
                 position.x,
-                position.y
+                position.y,
+                std::uint8_t{0}
             }});
         }
     );
@@ -45,6 +48,7 @@ void Room::BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity) {
     if (!registre.alive(entity))
         return;
     const Position& position = registre.get<Position>(entity);
+    const Player& player = registre.get<Player>(entity);
     for (const auto& [endpoint, existingEntity] : _players) {
         if (endpoint == newClient)
             continue;
@@ -52,7 +56,8 @@ void Room::BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity) {
             ecs::entityValue(entity),
             std::uint8_t{1},
             position.x,
-            position.y
+            position.y,
+            player.color
         }});
     }
 }

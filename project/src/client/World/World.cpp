@@ -16,11 +16,10 @@ World::World() {
 }
 
 void World::Spawn(const EntityData& data) {
-    const int color = _player && *_player == data.id ? _playerColor : -1;
     const auto it = _entities.find(data.id);
     if (it != _entities.end()) {
         _registry.get<Transform>(it->second) = {static_cast<float>(data.x), static_cast<float>(data.y)};
-        _registry.get<Appearance>(it->second) = {data.kind, color};
+        _registry.get<Appearance>(it->second) = {data.kind, data.color};
         return;
     }
     if (_registry.aliveCount() >= ecs::kMaxEntities)
@@ -28,7 +27,7 @@ void World::Spawn(const EntityData& data) {
     const ecs::Entity entity = _registry.spawn();
     _registry.add<NetIdentity>(entity, NetIdentity{data.id});
     _registry.add<Transform>(entity, Transform{static_cast<float>(data.x), static_cast<float>(data.y)});
-    _registry.add<Appearance>(entity, Appearance{data.kind, color});
+    _registry.add<Appearance>(entity, Appearance{data.kind, data.color});
     _entities.emplace(data.id, entity);
 }
 
@@ -57,7 +56,7 @@ void World::Replace(const std::vector<EntityData>& entities) {
 void World::SetPlayer(std::uint32_t id, std::int32_t x, std::int32_t y, std::uint8_t color) {
     _player = id;
     _playerColor = color;
-    Spawn({id, KIND_PLAYER, x, y});
+    Spawn({id, KIND_PLAYER, x, y, color});
 }
 
 void World::Clear() {
