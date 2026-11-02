@@ -41,7 +41,7 @@ Part 1 constraints:
 | `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | Submit input press/release events for a controlled entity |
 | `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | Begin an initial state transfer |
 | `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 | Publish authoritative entity position |
-| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 13 | Create or refresh an entity representation |
+| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 | Create or refresh an entity representation |
 | `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
 | `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
 | `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | Tell a client which entity it controls |
@@ -169,6 +169,7 @@ An update for an unknown entity must not implicitly create it. The client may de
 | 4 | `entity_kind` | uint8 | `0x01` player ship, `0x02` enemy, `0x03` projectile; others reserved |
 | 5 | `x` | int32 | Initial authoritative X coordinate |
 | 9 | `y` | int32 | Initial authoritative Y coordinate |
+| 13 | `color` | uint8 | Player colour index, `0` to `3`, chosen by the server and unique among the players of the room; `0` and ignored for non-player entities |
 
 `entity_kind` is a rendering/spawning hint, not a C++ class identity. The `entity_kind` values are the approved Part 1 wire-level baseline from issue #9; adding more kinds or ECS fields requires a documented protocol revision. A duplicate spawn for the same live entity must not create a second entity.
 

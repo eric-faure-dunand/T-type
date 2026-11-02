@@ -39,7 +39,8 @@ void Room::HandlePlayerShoot(ecs::Entity playerEntity) {
             ecs::entityValue(projectile),
             std::uint8_t{2},
             position.x,
-            position.y
+            position.y,
+            std::uint8_t{0}
         }});
     }
 }

@@ -1,6 +1,7 @@
 #ifndef ROOM_HPP
     #define ROOM_HPP
 
+    #include <algorithm>
     #include <atomic>
     #include <chrono>
     #include <cstddef>

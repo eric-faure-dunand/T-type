@@ -27,8 +27,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::InitialStateBegin, {Direction::ServerToClient, {ArgType::U32}}},
     // entity_id, x, y
     {Command::EntityUpdate, {Direction::ServerToClient, {ArgType::U32, ArgType::I32, ArgType::I32}}},
-    // entity_id, entity_kind, x, y
-    {Command::EntitySpawn, {Direction::ServerToClient, {ArgType::U32, ArgType::U8, ArgType::I32, ArgType::I32}}},
+    // entity_id, entity_kind, x, y, color
+    {Command::EntitySpawn, {Direction::ServerToClient, {ArgType::U32, ArgType::U8, ArgType::I32, ArgType::I32, ArgType::U8}}},
     // entity_id
     {Command::EntityDestroy, {Direction::ServerToClient, {ArgType::U32}}},
     // entity_count

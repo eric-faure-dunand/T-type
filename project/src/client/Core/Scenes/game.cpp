@@ -35,10 +35,10 @@ static float HeightOf(std::uint8_t kind) {
     }
 }
 
-static Rgba ColorOf(std::uint32_t id, const Appearance& look) {
+static Rgba ColorOf(const Appearance& look) {
     switch (look.kind) {
         case KIND_PLAYER:
-            return palette::PLAYERS[static_cast<std::size_t>(look.color >= 0 ? look.color : static_cast<int>(id)) % 4];
+            return palette::PLAYERS[look.color];
         case KIND_ENEMY:
             return palette::ENEMY;
         case KIND_PROJECTILE:
@@ -60,7 +60,7 @@ void ClientCore::GameFrame(float dt) {
     DrawEntities();
     _display.Print("ESC to leave the room", 10, 10, 18, palette::DIM);
     if (const auto player = _world.Player()) {
-        const Rgba color = palette::PLAYERS[static_cast<std::size_t>(_world.PlayerColor() >= 0 ? _world.PlayerColor() : 0) % 4];
+        const Rgba color = palette::PLAYERS[_world.PlayerColor() >= 0 ? _world.PlayerColor() : 0];
         _display.Print("You are player " + std::to_string(*player), 10, 34, 18, color);
     }
     if (_world.Count() == 0)
@@ -74,8 +74,8 @@ void ClientCore::GameFrame(float dt) {
 
 void ClientCore::DrawEntities() {
     _world.Registry().each<NetIdentity, Transform, Appearance>(
-        [this](NetIdentity& net, Transform& pos, Appearance& look) {
-            _display.FillRect(pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind), ColorOf(net.id, look));
+        [this](NetIdentity&, Transform& pos, Appearance& look) {
+            _display.FillRect(pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind), ColorOf(look));
         });
 }
 

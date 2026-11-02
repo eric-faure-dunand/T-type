@@ -29,7 +29,12 @@ void Room::HandlePlayerConnection(const Endpoint& from) {
         return;
     }
     const ecs::Entity entity = registre.spawn();
-    const std::uint8_t color = static_cast<std::uint8_t>(_players.size() % 4);
+    std::uint8_t color = 0;
+    while (std::any_of(_players.begin(), _players.end(), [this, color](const auto& player) {
+        const Player* other = registre.tryGet<Player>(player.second);
+        return other && other->color == color;
+    }))
+        ++color;
     const std::int32_t x = 100;
     const std::int32_t y = 100 + static_cast<std::int32_t>(_players.size()) * 80;
     registre.add<Position>(entity, Position{x, y});

@@ -45,10 +45,11 @@ void ClientCore::OnInitialStateEnd(const ArgsList& args) {
 }
 
 void ClientCore::OnEntitySpawn(const ArgsList& args) {
-    if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 4)
+    if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 5)
         return;
     const EntityData entity{std::get<std::uint32_t>(args[0][0]), std::get<std::uint8_t>(args[0][1]),
-        std::get<std::int32_t>(args[0][2]), std::get<std::int32_t>(args[0][3])};
+        std::get<std::int32_t>(args[0][2]), std::get<std::int32_t>(args[0][3]),
+        std::get<std::uint8_t>(args[0][4])};
     if (_destroyed.contains(entity.id))
         return;
     if (!_transfer) {
