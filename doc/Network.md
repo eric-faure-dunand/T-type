@@ -131,7 +131,7 @@ Only these methods may be called from another thread: `Clients`, `ClientCount`, 
 `Clock::Tick()` returns `true` when at least 1/`TICK_RATE` of a second (120 Hz) has passed since the last tick that returned `true`. `Core` and `Room` use it in their loop:
 
 ```cpp
-while (SERVER_RUN) {
+while (APP_RUN) {
     if (_clock.Tick()) {
         _socket.Poll();
         CloseRooms();

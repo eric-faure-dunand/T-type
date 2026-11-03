@@ -6,8 +6,11 @@ This guide explains how `r-type_client` is built: its main loop, its screens, an
 
 ```sh
 ./r-type_client              # the menu asks for the server IP (default 127.0.0.1)
-./r-type_client 10.0.0.5     # pre-fills the IP field
+./r-type_client 10.0.0.5     # connects to the server right away, without the menu
+./r-type_client localhost    # same as 127.0.0.1
 ```
+
+`localhost` is the only accepted name, any other value must be an IPv4 address. A wrong address does not stop the client: the window opens on the menu with an `Invalid IP address` message and the IP can be typed again. The menu is also shown again when the connection to the server is lost. Ctrl+C closes the client the same way as closing the window.
 
 The port is always the server default, `6767`. On Windows the executable opens without a console, so it can be started with a double click.
 
@@ -32,7 +35,8 @@ The client is single-threaded. `ClientCore` owns the window, the socket and the 
 
 | Path | Content |
 |---|---|
-| `project/src/client/main.cpp` | Reads the optional IP argument, runs `ClientCore` |
+| `project/src/client/main.cpp` | Reads the optional IP argument, installs the Ctrl+C handler, runs `ClientCore` |
+| `project/include/shared/sig.hpp`, `src/shared/sig.cpp` | `APP_RUN` flag cleared by the Ctrl+C handler `sigint`, checked by the main loop (shared with the server) |
 | `project/include/client/Core/ClientCore.hpp` | `ClientCore`, constants (window, timeouts), input actions and key bindings, colour palette |
 | `project/src/client/Core/ClientCore.cpp` | Main loop, scenes, timeouts, starfield, UI helpers |
 | `project/src/client/Core/connection.cpp` | Connect to the server, go to a room and back, leave, send inputs |
@@ -53,7 +57,7 @@ The current scene is also the connection state:
 
 | Scene | Current host | Leaves the scene on |
 |---|---|---|
-| `Menu` | none | ENTER → `Connecting` |
+| `Menu` | none | ENTER → `Connecting` (not shown at startup when a valid IP is given) |
 | `Connecting` | server | `CONNECT_ACCEPT` → `Lobby`; `ERROR` or 3 s without answer → `Menu` |
 | `Lobby` | server | C / ENTER: `CREATE_ROOM` / `JOIN_ROOM` → `Joining`; ESC → `Menu` |
 | `Joining` | server, then room | `ROOM_JOINED`: connect to the room port; room `CONNECT_ACCEPT` → `Game`; `ERROR` or 3 s → `Lobby` |
