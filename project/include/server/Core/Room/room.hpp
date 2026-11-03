@@ -10,20 +10,22 @@
     #include <iostream>
     #include <deque>
     #include <mutex>
-    #include <unordered_map>
+    #include <random>
+    #include <unordered_set>
 
     #include "sig.hpp"
     #include "clock.hpp"
     #include "network.hpp"
     #include "Registry.hpp"
-    #include "Components/PlayerComponents.hpp"
-    #include "Components/ProjectileComponents.hpp"
+    #include "Gameplay.hpp"
+    #include "Spawner.hpp"
 
 namespace r_type {
 
 constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
 constexpr std::size_t MAX_PENDING_INPUTS = 256;
 constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
+constexpr unsigned int ROOM_UPDATE_RATE = 20;
 
 class Room {
 
@@ -47,26 +49,26 @@ class Room {
     std::deque<Endpoint> _pendingDisconnections;
 
     ecs::Registry registre;
+    ecs::SystemManager _systems;
 
     std::map<Endpoint, ecs::Entity> _players;
 
-    std::unordered_map<std::uint32_t, std::chrono::steady_clock::time_point> _lastShotTime;
+    std::unordered_set<std::uint32_t> _synced;
+    std::uint64_t _tick = 0;
 
     void Run();
 
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
     void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
-    void HandlePlayerShoot(ecs::Entity playerEntity);
     void HandlePlayerConnection(const Endpoint& from);
     void SendInitialState(const Endpoint& client);
     void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);
     void HandlePlayerDisconnection(const Endpoint& from);
 
-    void UpdatePlayers();
-    void UpdateProjectiles();
-    void DestroyOutOfBoundsProjectiles();
-    void BroadcastPlayerUpdates();
-    void BroadcastProjectileUpdates();
+    ArgsList SpawnArgs(ecs::Entity entity);
+    void Broadcast(Command command, const ArgsList& args);
+    void ApplyInputs();
+    void SyncEntities();
 
     void ProcessPendingDisconnections();
 
