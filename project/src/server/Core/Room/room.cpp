@@ -52,7 +52,7 @@ void Room::Stop() {
 }
 
 void Room::Run() {
-    while (SERVER_RUN && _running) {
+    while (APP_RUN && _running) {
         if (_clock.Tick()) {
             ProcessPendingDisconnections();
             net.Poll();

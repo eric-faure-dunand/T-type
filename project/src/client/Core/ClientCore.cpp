@@ -22,10 +22,17 @@ ClientCore::ClientCore(std::string ip):
         const float d = depth(rng);
         _stars.push_back({x(rng), y(rng), 20.f + d * 80.f, 1.f + d * 2.f});
     }
+    if (_ip.empty()) {
+        _ip = LOCAL_IP;
+        return;
+    }
+    if (_ip == LOCALHOST)
+        _ip = LOCAL_IP;
+    ConnectServer();
 }
 
 void ClientCore::Run() {
-    while (!_quit && !_display.ShouldClose()) {
+    while (APP_RUN && !_quit && !_display.ShouldClose()) {
         const float dt = _display.FrameTime();
         if (_net.IsOpen())
             _net.Poll();
