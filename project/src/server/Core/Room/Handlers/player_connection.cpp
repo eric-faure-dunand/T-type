@@ -17,29 +17,29 @@ void Room::HandlePlayerConnection(const Endpoint& from) {
         const ecs::Entity entity = existing->second;
         if (!registre.alive(entity))
             return;
-        const Position& position = registre.get<Position>(entity);
-        const Player& player = registre.get<Player>(entity);
+        const game::Position& position = registre.get<game::Position>(entity);
+        const game::Player& player = registre.get<game::Player>(entity);
         net.SendTo(from, Command::PlayerCreation, {{
             ecs::entityValue(entity),
-            position.x,
-            position.y,
-            player.color
+            static_cast<std::int32_t>(position.x),
+            static_cast<std::int32_t>(position.y),
+            static_cast<std::uint8_t>(player.id - 1)
         }});
         SendInitialState(from);
         return;
     }
-    const ecs::Entity entity = registre.spawn();
     std::uint8_t color = 0;
     while (std::any_of(_players.begin(), _players.end(), [this, color](const auto& player) {
-        const Player* other = registre.tryGet<Player>(player.second);
-        return other && other->color == color;
+        const game::Player* other = registre.tryGet<game::Player>(player.second);
+        return other && other->id - 1 == color;
     }))
         ++color;
     const std::int32_t x = 100;
-    const std::int32_t y = 100 + static_cast<std::int32_t>(_players.size()) * 80;
-    registre.add<Position>(entity, Position{x, y});
-    registre.add<Player>(entity, Player{color});
+    const std::int32_t y = 100 + static_cast<std::int32_t>(color) * 80;
+    const ecs::Entity entity = game::spawnPlayer(registre, color + 1,
+        static_cast<float>(x), static_cast<float>(y));
     _players.emplace(from, entity);
+    _synced.insert(ecs::entityValue(entity));
     net.SendTo(from, Command::PlayerCreation, {{
         ecs::entityValue(entity),
         x,
