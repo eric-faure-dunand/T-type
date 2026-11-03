@@ -10,35 +10,16 @@
 namespace r_type {
 
 void Room::SendInitialState(const Endpoint& client) {
-    std::uint32_t count = static_cast<std::uint32_t>(_players.size());
-    registre.each<Position, Projectile>(
-        [&count](const Position&, const Projectile&) {
+    std::uint32_t count = 0;
+    registre.each<game::Kind, game::Position>(
+        [&count](const game::Kind&, const game::Position&) {
             ++count;
         }
     );
     net.SendTo(client, Command::InitialStateBegin, {{count}});
-    for (const auto& [endpoint, entity] : _players) {
-        if (!registre.alive(entity))
-            continue;
-        const Position& position = registre.get<Position>(entity);
-        const Player& player = registre.get<Player>(entity);
-        net.SendTo(client, Command::EntitySpawn, {{
-            ecs::entityValue(entity),
-            std::uint8_t{1},
-            position.x,
-            position.y,
-            player.color
-        }});
-    }
-    registre.each<Position, Projectile>(
-        [this, &client](ecs::Entity entity, const Position& position, const Projectile&) {
-            net.SendTo(client, Command::EntitySpawn, {{
-                ecs::entityValue(entity),
-                std::uint8_t{2},
-                position.x,
-                position.y,
-                std::uint8_t{0}
-            }});
+    registre.each<game::Kind, game::Position>(
+        [this, &client](ecs::Entity entity, const game::Kind&, const game::Position&) {
+            net.SendTo(client, Command::EntitySpawn, SpawnArgs(entity));
         }
     );
     net.SendTo(client, Command::InitialStateEnd, {{count}});
@@ -47,18 +28,11 @@ void Room::SendInitialState(const Endpoint& client) {
 void Room::BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity) {
     if (!registre.alive(entity))
         return;
-    const Position& position = registre.get<Position>(entity);
-    const Player& player = registre.get<Player>(entity);
+    const ArgsList args = SpawnArgs(entity);
     for (const auto& [endpoint, existingEntity] : _players) {
         if (endpoint == newClient)
             continue;
-        net.SendTo(endpoint, Command::EntitySpawn, {{
-            ecs::entityValue(entity),
-            std::uint8_t{1},
-            position.x,
-            position.y,
-            player.color
-        }});
+        net.SendTo(endpoint, Command::EntitySpawn, args);
     }
 }
 
