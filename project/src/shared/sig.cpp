@@ -2,5 +2,5 @@
 
 void sigint(int sig) {
     (void)sig;
-    SERVER_RUN = false;
+    APP_RUN = false;
 }

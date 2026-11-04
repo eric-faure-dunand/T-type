@@ -4,7 +4,7 @@
     #include <atomic>
     #include <csignal>
 
-inline std::atomic_bool SERVER_RUN = true;
+inline std::atomic_bool APP_RUN = true;
 
 void sigint(int sig);
 

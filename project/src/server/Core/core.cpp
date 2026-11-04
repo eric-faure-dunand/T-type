@@ -19,7 +19,7 @@ Core::Core(std::uint16_t port): _socket(Role::Server, DEFAULT_SERVER_CLIENTS) {
 }
 
 void Core::Run() {
-    while (SERVER_RUN) {
+    while (APP_RUN) {
         if (_clock.Tick()) {
             _socket.Poll();
             CloseRooms();

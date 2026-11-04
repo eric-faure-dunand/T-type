@@ -20,12 +20,15 @@
     #include "network.hpp"
     #include "Display.hpp"
     #include "World.hpp"
+    #include "sig.hpp"
 
 namespace r_type::client {
 
 constexpr int WINDOW_WIDTH = 1280;
 constexpr int WINDOW_HEIGHT = 720;
 constexpr std::size_t MAX_IP_LENGTH = 15;
+constexpr const char *LOCAL_IP = "127.0.0.1";
+constexpr const char *LOCALHOST = "localhost";
 constexpr std::size_t MAX_TRANSFER_ENTITIES = 4096;
 constexpr float CONNECT_LIMIT = 3.f;
 constexpr float ROOM_REFRESH_DELAY = 2.f;
