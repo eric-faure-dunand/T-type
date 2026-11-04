@@ -16,6 +16,32 @@ project(r-type_server CXX)
 include(cmake/CPM.cmake)
 
 CPMAddPackage(
+    NAME lz4
+    GITHUB_REPOSITORY lz4/lz4
+    GIT_TAG v1.10.0
+    DOWNLOAD_ONLY YES
+)
+
+add_library(r_type_lz4 STATIC
+    "${lz4_SOURCE_DIR}/lib/lz4.c"
+)
+
+target_include_directories(r_type_lz4 PUBLIC
+    "${lz4_SOURCE_DIR}/lib"
+)
+
+# Unit tests
+enable_testing()
+
+CPMAddPackage(
+    NAME googletest
+    GITHUB_REPOSITORY google/googletest
+    GIT_TAG v1.15.2
+    OPTIONS
+        "gtest_force_shared_crt ON"
+)
+
+CPMAddPackage(
     NAME asio
     GITHUB_REPOSITORY chriskohlhoff/asio
     GIT_TAG asio-1-38-2
@@ -61,7 +87,7 @@ target_include_directories(r-type_server
         project/include/shared/Game
 )
 
-target_link_libraries(r-type_server PRIVATE asio)
+target_link_libraries(r-type_server PRIVATE asio r_type_lz4)
 
 if(MSVC)
     target_compile_options(r-type_server PRIVATE /W4 /WX /permissive-)
@@ -113,7 +139,7 @@ target_include_directories(r-type_client
         project/include/shared/Game
 )
 
-target_link_libraries(r-type_client PRIVATE asio raylib)
+target_link_libraries(r-type_client PRIVATE asio raylib r_type_lz4)
 
 if(MSVC)
     target_compile_options(r-type_client PRIVATE /W4 /WX /permissive-)
@@ -133,3 +159,21 @@ if(WIN32)
         target_link_options(r-type_client PRIVATE /ENTRY:mainCRTStartup)
     endif()
 endif()
+
+# Compression tests
+add_executable(compressor_tests
+    project/tests/shared/Compression/test_compressor.cpp
+    project/src/shared/Compression/Compressor.cpp
+)
+
+target_include_directories(compressor_tests PRIVATE
+    project/include/shared
+)
+
+target_link_libraries(compressor_tests PRIVATE
+    GTest::gtest_main
+    r_type_lz4
+)
+
+include(GoogleTest)
+gtest_discover_tests(compressor_tests)
