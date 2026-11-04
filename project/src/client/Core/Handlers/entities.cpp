@@ -72,6 +72,11 @@ void ClientCore::OnEntityDestroy(const ArgsList& args) {
     if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 1)
         return;
     const std::uint32_t id = std::get<std::uint32_t>(args[0][0]);
+    if (_world.Player() == id) {
+        Send(Command::DisconnectRoom, {{id}});
+        ReturnToLobby();
+        return;
+    }
     _destroyed.insert(id);
     if (_transfer)
         _transfer->entities.erase(id);

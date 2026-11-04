@@ -11,9 +11,8 @@ namespace r_type {
 
 Room::Room(std::uint32_t id):
     _id(id), net(Role::Server, DEFAULT_ROOM_CLIENTS, true), _lastAnnounce(std::chrono::steady_clock::now()) {
-    registre.registerComponent<Position>();
-    registre.registerComponent<Player>();
-    registre.registerComponent<Projectile>();
+    game::registerGameplayComponents(registre);
+    game::addGameplaySystems(_systems, std::random_device{}());
 
     net.On(Command::ConnectRequest, [this](const Endpoint& from, const ArgsList&) {
         HandlePlayerConnection(from);
@@ -56,11 +55,9 @@ void Room::Run() {
         if (_clock.Tick()) {
             ProcessPendingDisconnections();
             net.Poll();
-            UpdatePlayers();
-            UpdateProjectiles();
-            DestroyOutOfBoundsProjectiles();
-            BroadcastPlayerUpdates();
-            BroadcastProjectileUpdates();
+            ApplyInputs();
+            _systems.run(registre, 1.f / TICK_RATE);
+            SyncEntities();
             if (net.ClientCount() > 0)
                 _used = true;
         }
