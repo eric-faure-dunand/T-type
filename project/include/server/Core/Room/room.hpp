@@ -26,6 +26,7 @@ constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
 constexpr std::size_t MAX_PENDING_INPUTS = 256;
 constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
 constexpr unsigned int ROOM_UPDATE_RATE = 20;
+constexpr std::size_t MAX_RECORDS_PER_MESSAGE = 2048;
 
 class Room {
 
@@ -65,8 +66,9 @@ class Room {
     void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);
     void HandlePlayerDisconnection(const Endpoint& from);
 
-    ArgsList SpawnArgs(ecs::Entity entity);
-    void Broadcast(Command command, const ArgsList& args);
+    Args SpawnArgs(ecs::Entity entity);
+    void SendList(const Endpoint& client, Command command, const ArgsList& records);
+    void Broadcast(Command command, const ArgsList& records);
     void ApplyInputs();
     void SyncEntities();
 
