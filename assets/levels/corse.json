@@ -1,0 +1,15 @@
+{
+    "name": "Le Maquis",
+    "country": "corse",
+    "owner": "Eric",
+    "background": "corse",
+    "waves": [
+        { "time": 1,  "enemy": "grognard",  "pattern": "formation", "count": 5, "spacing": 0 },
+        { "time": 8,  "enemy": "sanglier",  "pattern": "dive",      "count": 5, "spacing": 0.6 },
+        { "time": 14, "enemy": "grognard",  "pattern": "formation", "count": 7, "spacing": 0 },
+        { "time": 21, "enemy": "sanglier",  "pattern": "zigzag",    "count": 6, "spacing": 0.45 },
+        { "time": 27, "enemy": "grognard",  "pattern": "formation", "count": 8, "spacing": 0 },
+        { "time": 33, "enemy": "sanglier",  "pattern": "sine",      "count": 6, "spacing": 0.4 }
+    ],
+    "boss": { "type": "napoleon", "health": 100, "time": 40 }
+}

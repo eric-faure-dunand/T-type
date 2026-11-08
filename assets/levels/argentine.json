@@ -1,0 +1,15 @@
+{
+    "name": "Buenos Aires",
+    "country": "argentine",
+    "owner": "Ana",
+    "background": "argentine",
+    "waves": [
+        { "time": 1,  "enemy": "ballon",    "pattern": "bounce",    "count": 5, "spacing": 0.7 },
+        { "time": 6,  "enemy": "supporter", "pattern": "sine",      "count": 6, "spacing": 0.5 },
+        { "time": 12, "enemy": "ballon",    "pattern": "zigzag",    "count": 6, "spacing": 0.4 },
+        { "time": 18, "enemy": "defenseur", "pattern": "wall",      "count": 7, "spacing": 0 },
+        { "time": 27, "enemy": "ballon",    "pattern": "dive",      "count": 6, "spacing": 0.5 },
+        { "time": 32, "enemy": "supporter", "pattern": "sine",      "count": 8, "spacing": 0.35 }
+    ],
+    "boss": { "type": "eldiez", "health": 90, "time": 40 }
+}

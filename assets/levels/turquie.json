@@ -1,0 +1,15 @@
+{
+    "name": "Istanbul",
+    "country": "turquie",
+    "owner": "Hilal",
+    "background": "turquie",
+    "waves": [
+        { "time": 1,  "enemy": "simit",     "pattern": "sine",      "count": 6, "spacing": 0.5 },
+        { "time": 7,  "enemy": "cay",       "pattern": "straight",  "count": 5, "spacing": 0.7 },
+        { "time": 13, "enemy": "chat",      "pattern": "dive",      "count": 6, "spacing": 0.4 },
+        { "time": 19, "enemy": "simit",     "pattern": "zigzag",    "count": 8, "spacing": 0.35 },
+        { "time": 26, "enemy": "cay",       "pattern": "sine",      "count": 6, "spacing": 0.5 },
+        { "time": 32, "enemy": "chat",      "pattern": "bounce",    "count": 8, "spacing": 0.3 }
+    ],
+    "boss": { "type": "doner", "health": 60, "time": 40 }
+}
