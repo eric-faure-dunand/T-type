@@ -335,3 +335,21 @@ target_link_libraries(secure_session_tests PRIVATE
 )
 
 gtest_discover_tests(secure_session_tests)
+
+
+# Replay window tests
+
+add_executable(replay_window_tests
+    project/tests/shared/Network/test_replay_window.cpp
+    project/src/shared/Network/ReplayWindow.cpp
+)
+
+target_include_directories(replay_window_tests PRIVATE
+    project/include/shared
+)
+
+target_link_libraries(replay_window_tests PRIVATE
+    GTest::gtest_main
+)
+
+gtest_discover_tests(replay_window_tests)
