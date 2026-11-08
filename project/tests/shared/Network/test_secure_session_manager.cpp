@@ -6,6 +6,8 @@
 */
 
 #include "Network/SecureSessionManager.hpp"
+#include "Network/packet.hpp"
+
 #include <cstdio>
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -163,4 +165,103 @@ TEST_F(SecureSessionManagerTest, RejectUnknownEndpoint) {
 
     EXPECT_THROW(manager.encode(endpoint(7001), data), std::runtime_error);
     EXPECT_THROW(manager.decode(endpoint(7001), data), std::runtime_error);
+}
+
+
+TEST_F(SecureSessionManagerTest, ClientToServerRoundTrip) {
+    SecureSession client;
+    SecureSession server;
+    establish(client, server);
+
+    SecureSessionManager clientManager(SecureTransport::Role::Client);
+    SecureSessionManager serverManager(SecureTransport::Role::Server);
+    const auto clientEndpoint = endpoint(7001);
+    const auto serverEndpoint = endpoint(6767);
+
+    ASSERT_TRUE(clientManager.install(serverEndpoint, client));
+    ASSERT_TRUE(serverManager.install(clientEndpoint, server));
+
+    const auto original = EncodePacket(Command::PlayerInput,
+        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
+        r_type::Role::Client);
+
+    const auto encrypted = clientManager.encode(serverEndpoint, original);
+    const auto decrypted = serverManager.decode(clientEndpoint, encrypted);
+
+    EXPECT_EQ(decrypted, original);
+    EXPECT_NE(encrypted, original);
+}
+
+TEST_F(SecureSessionManagerTest, ServerToClientRoundTrip) {
+    SecureSession client;
+    SecureSession server;
+    establish(client, server);
+
+    SecureSessionManager clientManager(SecureTransport::Role::Client);
+    SecureSessionManager serverManager(SecureTransport::Role::Server);
+    const auto clientEndpoint = endpoint(7001);
+    const auto serverEndpoint = endpoint(6767);
+
+    ASSERT_TRUE(clientManager.install(serverEndpoint, client));
+    ASSERT_TRUE(serverManager.install(clientEndpoint, server));
+
+    const auto original = EncodePacket(Command::ConnectAccept,
+        {{}}, r_type::Role::Server);
+
+    const auto encrypted = serverManager.encode(clientEndpoint, original);
+
+    EXPECT_EQ(clientManager.decode(serverEndpoint, encrypted), original);
+}
+
+TEST_F(SecureSessionManagerTest, RejectPacketFromAnotherSession) {
+    SecureSession firstClient;
+    SecureSession firstServer;
+    SecureSession secondClient;
+    SecureSession secondServer;
+    establish(firstClient, firstServer);
+    establish(secondClient, secondServer);
+
+    SecureSessionManager clientManager(SecureTransport::Role::Client);
+    SecureSessionManager serverManager(SecureTransport::Role::Server);
+    const auto firstEndpoint = endpoint(7001);
+    const auto secondEndpoint = endpoint(7002);
+    const auto serverEndpoint = endpoint(6767);
+
+    ASSERT_TRUE(clientManager.install(serverEndpoint, firstClient));
+    ASSERT_TRUE(serverManager.install(firstEndpoint, firstServer));
+    ASSERT_TRUE(serverManager.install(secondEndpoint, secondServer));
+
+    const auto original = EncodePacket(Command::PlayerInput,
+        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
+        r_type::Role::Client);
+
+    const auto encrypted = clientManager.encode(serverEndpoint, original);
+
+    EXPECT_THROW(serverManager.decode(secondEndpoint, encrypted),
+        std::runtime_error);
+    EXPECT_EQ(serverManager.decode(firstEndpoint, encrypted), original);
+}
+
+TEST_F(SecureSessionManagerTest, RejectReplayedPacket) {
+    SecureSession client;
+    SecureSession server;
+    establish(client, server);
+
+    SecureSessionManager clientManager(SecureTransport::Role::Client);
+    SecureSessionManager serverManager(SecureTransport::Role::Server);
+    const auto clientEndpoint = endpoint(7001);
+    const auto serverEndpoint = endpoint(6767);
+
+    ASSERT_TRUE(clientManager.install(serverEndpoint, client));
+    ASSERT_TRUE(serverManager.install(clientEndpoint, server));
+
+    const auto original = EncodePacket(Command::PlayerInput,
+        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
+        r_type::Role::Client);
+
+    const auto encrypted = clientManager.encode(serverEndpoint, original);
+
+    ASSERT_EQ(serverManager.decode(clientEndpoint, encrypted), original);
+    EXPECT_THROW(serverManager.decode(clientEndpoint, encrypted),
+        std::runtime_error);
 }
