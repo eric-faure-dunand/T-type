@@ -210,3 +210,22 @@ target_link_libraries(secure_pipeline_tests PRIVATE
     OpenSSL::Crypto
 )
 gtest_discover_tests(secure_pipeline_tests)
+
+# secure packet tests
+
+add_executable(secure_packet_tests
+    project/tests/shared/Network/test_secure_packet.cpp
+    project/src/shared/Network/SecurePacket.cpp
+    project/src/shared/Compression/Compressor.cpp
+    project/src/shared/Encryption/Crypter.cpp
+)
+
+target_include_directories(secure_packet_tests PRIVATE project/include/shared)
+
+target_link_libraries(secure_packet_tests PRIVATE
+    GTest::gtest_main
+    r_type_lz4
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(secure_packet_tests)

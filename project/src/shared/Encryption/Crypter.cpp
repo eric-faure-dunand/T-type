@@ -1,4 +1,3 @@
-
 /*
 ** EPITECH PROJECT, 2026
 ** T-type
@@ -17,6 +16,7 @@ namespace r_type {
 namespace {
 constexpr int nonceSize = 12;
 constexpr int tagSize = 16;
+constexpr std::size_t maxDataSize = 1024 * 1024;
 
 using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_free)>;
 
@@ -30,9 +30,11 @@ CipherContext createContext() {
 
 Crypter::Crypter(const Key& key) : _key(key) {}
 
-std::string Crypter::encrypt(const std::string& data) const {
-    if (data.size() > 1024 * 1024)
+std::string Crypter::encrypt(const std::string& data, const std::string& aad) const {
+    if (data.size() > maxDataSize)
         throw std::length_error("Data too large to encrypt");
+    if (aad.size() > maxDataSize)
+        throw std::length_error("AAD too large");
 
     std::string result(nonceSize + data.size() + tagSize, '\0');
     auto context = createContext();
@@ -43,6 +45,12 @@ std::string Crypter::encrypt(const std::string& data) const {
     if (EVP_EncryptInit_ex(context.get(), EVP_aes_256_gcm(), nullptr,
         _key.data(), reinterpret_cast<const unsigned char*>(result.data())) != 1)
         throw std::runtime_error("Encryption initialization failed");
+
+    int aadWritten = 0;
+    if (!aad.empty() && EVP_EncryptUpdate(context.get(), nullptr, &aadWritten,
+        reinterpret_cast<const unsigned char*>(aad.data()),
+        static_cast<int>(aad.size())) != 1)
+        throw std::runtime_error("AAD authentication failed");
 
     int written = 0;
     if (EVP_EncryptUpdate(context.get(),
@@ -65,11 +73,13 @@ std::string Crypter::encrypt(const std::string& data) const {
     return result;
 }
 
-std::string Crypter::decrypt(const std::string& data) const {
+std::string Crypter::decrypt(const std::string& data, const std::string& aad) const {
     if (data.size() < nonceSize + tagSize)
         throw std::runtime_error("Invalid encrypted data");
-    if (data.size() > 1024 * 1024 + nonceSize + tagSize)
+    if (data.size() > maxDataSize + nonceSize + tagSize)
         throw std::length_error("Encrypted data too large");
+    if (aad.size() > maxDataSize)
+        throw std::length_error("AAD too large");
 
     const int cipherSize = static_cast<int>(data.size() - nonceSize - tagSize);
     std::string result(cipherSize, '\0');
@@ -78,6 +88,12 @@ std::string Crypter::decrypt(const std::string& data) const {
     if (EVP_DecryptInit_ex(context.get(), EVP_aes_256_gcm(), nullptr,
         _key.data(), reinterpret_cast<const unsigned char*>(data.data())) != 1)
         throw std::runtime_error("Decryption initialization failed");
+
+    int aadWritten = 0;
+    if (!aad.empty() && EVP_DecryptUpdate(context.get(), nullptr, &aadWritten,
+        reinterpret_cast<const unsigned char*>(aad.data()),
+        static_cast<int>(aad.size())) != 1)
+        throw std::runtime_error("AAD authentication failed");
 
     int written = 0;
     if (EVP_DecryptUpdate(context.get(),

@@ -21,8 +21,8 @@ public:
     explicit Crypter(const Key& key);
     ~Crypter() = default;
 
-    std::string encrypt(const std::string& data) const;
-    std::string decrypt(const std::string& data) const;
+    std::string encrypt(const std::string& data, const std::string& aad = "") const;
+    std::string decrypt(const std::string& data, const std::string& aad = "") const;
 
 private:
     Key _key;
