@@ -10,6 +10,8 @@
 
 #include <cstdint>
 #include <string>
+#include <cstddef>
+
 #include "Compression/Compressor.hpp"
 #include "Encryption/Crypter.hpp"
 
@@ -21,6 +23,8 @@ public:
 
     std::string encode(const std::string& payload, const std::string& aad = "") const;
     std::string decode(const std::string& payload, const std::string& aad = "") const;
+
+    std::size_t encodedSize(const std::string& payload) const;
 
 private:
     Compressor _compressor;

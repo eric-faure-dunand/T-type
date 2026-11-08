@@ -15,30 +15,40 @@ namespace {
 constexpr std::size_t nonceSize = 12;
 constexpr std::size_t tagSize = 16;
 constexpr std::size_t flagSize = 1;
-constexpr std::size_t maxEncryptedSize = MAX_DATAGRAM_SIZE - HEADER_SIZE;
-constexpr std::size_t maxPlaintextSize = maxEncryptedSize - nonceSize - tagSize - flagSize;
+constexpr std::size_t maxEncryptedSize = MAX_PAYLOAD_SIZE;
 
 constexpr unsigned char rawFlag = 0;
 constexpr unsigned char compressedFlag = 1;
+
+std::string preparePayload(const Compressor& compressor, const std::string& payload) {
+    if (payload.size() > MAX_PAYLOAD_SIZE)
+        throw std::length_error("Payload exceeds network packet limit");
+
+    const std::string compressed = compressor.compress(payload);
+    const bool useCompression = compressed.size() < payload.size();
+
+    std::string result;
+    result.reserve(flagSize + payload.size());
+    result.push_back(static_cast<char>(useCompression ? compressedFlag : rawFlag));
+    result += useCompression ? compressed : payload;
+    return result;
+}
 }
 
 SecurePacket::SecurePacket(const Crypter::Key& key) : _crypter(key) {}
 
+std::size_t SecurePacket::encodedSize(const std::string& payload) const {
+    const std::string prepared = preparePayload(_compressor, payload);
+    return nonceSize + prepared.size() + tagSize;
+}
+
 std::string SecurePacket::encode(const std::string& payload, const std::string& aad) const {
-    if (payload.size() > MAX_PAYLOAD_SIZE)
-        throw std::length_error("Payload exceeds network packet limit");
+    const std::string prepared = preparePayload(_compressor, payload);
 
-    const std::string compressed = _compressor.compress(payload);
-    const bool useCompression = compressed.size() < payload.size();
-
-    std::string data;
-    data.push_back(static_cast<char>(useCompression ? compressedFlag : rawFlag));
-    data += useCompression ? compressed : payload;
-
-    if (data.size() + nonceSize + tagSize > maxEncryptedSize)
+    if (prepared.size() + nonceSize + tagSize > maxEncryptedSize)
         throw std::length_error("Encrypted payload exceeds network packet limit");
 
-    return _crypter.encrypt(data, aad);
+    return _crypter.encrypt(prepared, aad);
 }
 
 std::string SecurePacket::decode(const std::string& payload, const std::string& aad) const {

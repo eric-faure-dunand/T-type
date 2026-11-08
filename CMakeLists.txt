@@ -229,3 +229,30 @@ target_link_libraries(secure_packet_tests PRIVATE
 )
 
 gtest_discover_tests(secure_packet_tests)
+
+# secure datagram test
+
+add_executable(secure_datagram_tests
+    project/tests/shared/Network/test_secure_datagram.cpp
+    project/src/shared/Network/SecureDatagram.cpp
+    project/src/shared/Network/SecurePacket.cpp
+    project/src/shared/Compression/Compressor.cpp
+    project/src/shared/Encryption/Crypter.cpp
+    project/src/shared/Network/packet.cpp
+    project/src/shared/Network/protocol.cpp
+)
+
+target_include_directories(secure_datagram_tests PRIVATE
+    project/include/shared
+    project/include/shared/Network
+    project/include/shared/Error
+    project/include/shared/Printer
+)
+
+target_link_libraries(secure_datagram_tests PRIVATE
+    GTest::gtest_main
+    r_type_lz4
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(secure_datagram_tests)
