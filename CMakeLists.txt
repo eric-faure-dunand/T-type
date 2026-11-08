@@ -194,3 +194,19 @@ target_link_libraries(crypter_tests PRIVATE
     OpenSSL::Crypto
 )
 gtest_discover_tests(crypter_tests)
+
+# Secure pipeline tests
+add_executable(secure_pipeline_tests
+    project/tests/shared/test_secure_pipeline.cpp
+    project/src/shared/Compression/Compressor.cpp
+    project/src/shared/Encryption/Crypter.cpp
+)
+target_include_directories(secure_pipeline_tests PRIVATE
+    project/include/shared
+)
+target_link_libraries(secure_pipeline_tests PRIVATE
+    GTest::gtest_main
+    r_type_lz4
+    OpenSSL::Crypto
+)
+gtest_discover_tests(secure_pipeline_tests)
