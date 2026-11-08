@@ -59,10 +59,10 @@ void ClientCore::GameFrame(float dt) {
 
     DrawEntities();
     _display.Print("ESC to leave the room", 10, 10, 18, palette::DIM);
-    if (const auto player = _world.Player()) {
-        const Rgba color = palette::PLAYERS[_world.PlayerColor() >= 0 ? _world.PlayerColor() : 0];
-        _display.Print("You are player " + std::to_string(*player), 10, 34, 18, color);
-    }
+    const int character = _world.PlayerColor();
+    if (_world.Player() && character >= 0 && character < static_cast<int>(CHARACTERS.size()))
+        _display.Print(std::string("You are ") + CHARACTERS[static_cast<std::size_t>(character)].name, 10, 34, 18,
+            palette::PLAYERS[character]);
     if (_world.Count() == 0)
         DrawCentered("Waiting for the server...", WINDOW_HEIGHT / 2 - 15, 30, palette::FOREGROUND);
 
@@ -75,6 +75,11 @@ void ClientCore::GameFrame(float dt) {
 void ClientCore::DrawEntities() {
     _world.Registry().each<NetIdentity, Transform, Appearance>(
         [this](NetIdentity&, Transform& pos, Appearance& look) {
+            if (look.kind == KIND_PLAYER && look.color >= 0 && look.color < static_cast<int>(CHARACTERS.size())) {
+                const float size = WidthOf(look.kind);
+                DrawFace(static_cast<std::size_t>(look.color), pos.x, pos.y + (HeightOf(look.kind) - size) / 2.f, size);
+                return;
+            }
             _display.FillRect(pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind), ColorOf(look));
         });
 }

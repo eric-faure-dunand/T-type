@@ -9,6 +9,7 @@
     #define CLIENT_DISPLAY_HPP
 
     #include <cstdint>
+    #include <map>
     #include <string>
 
 namespace r_type::client {
@@ -18,6 +19,14 @@ struct Rgba {
     std::uint8_t g = 0;
     std::uint8_t b = 0;
     std::uint8_t a = 255;
+};
+
+struct Sprite {
+    unsigned int id = 0;
+    int width = 0;
+    int height = 0;
+    int mipmaps = 0;
+    int format = 0;
 };
 
 enum class Key {
@@ -36,6 +45,7 @@ enum class Key {
 class Display {
     int _width;
     int _height;
+    std::map<std::string, Sprite> _sprites;
 
 public:
     Display(int width, int height, const std::string& title);
@@ -57,6 +67,9 @@ public:
     void FillCircle(float x, float y, float radius, Rgba color);
     void Print(const std::string& text, int x, int y, int size, Rgba color);
     int TextWidth(const std::string& text, int size) const;
+    bool LoadSprite(const std::string& name, const std::string& path);
+    bool HasSprite(const std::string& name) const;
+    void DrawSprite(const std::string& name, float x, float y, float width, float height);
 
     bool IsKeyDown(Key key) const;
     bool IsKeyPressed(Key key) const;

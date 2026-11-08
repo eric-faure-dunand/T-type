@@ -82,6 +82,7 @@ void ClientCore::OnError(const ArgsList& args) {
             }
             break;
         case Scene::Lobby:
+        case Scene::Character:
             if (error == NetError::NotConnected)
                 GoOffline("Connection to the server lost");
             break;
