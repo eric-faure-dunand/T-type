@@ -256,3 +256,21 @@ target_link_libraries(secure_datagram_tests PRIVATE
 )
 
 gtest_discover_tests(secure_datagram_tests)
+
+# key exchange tests
+
+add_executable(key_exchange_tests
+    project/tests/shared/Encryption/test_key_exchange.cpp
+    project/src/shared/Encryption/KeyExchange.cpp
+)
+
+target_include_directories(key_exchange_tests PRIVATE
+    project/include/shared
+)
+
+target_link_libraries(key_exchange_tests PRIVATE
+    GTest::gtest_main
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(key_exchange_tests)
