@@ -8,6 +8,10 @@
 #include <gtest/gtest.h>
 #include "Network/SecurePacket.hpp"
 
+#include "Compression/Compressor.hpp"
+#include "Encryption/Crypter.hpp"
+#include "Network/protocol.hpp"
+
 namespace {
 
 r_type::Crypter::Key testKey() {
@@ -58,11 +62,39 @@ TEST(SecurePacketTest, RejectTamperedData) {
 TEST(SecurePacketTest, RejectOversizedPayload) {
     r_type::SecurePacket packet(testKey());
 
-    EXPECT_THROW(packet.encode(std::string(1160, 'A')), std::length_error);
+    EXPECT_THROW(
+        packet.encode(std::string(r_type::MAX_PAYLOAD_SIZE + 1, 'A')),
+        std::length_error
+    );
 }
 
 TEST(SecurePacketTest, RoundTripEmptyPayload) {
     r_type::SecurePacket packet(testKey());
 
     EXPECT_EQ(packet.decode(packet.encode("")), "");
+}
+
+TEST(SecurePacketTest, RejectOversizedDecryptedPayload) {
+    r_type::SecurePacket packet(testKey());
+    r_type::Compressor compressor;
+    r_type::Crypter crypter(testKey());
+
+    const std::string compressed = compressor.compress(std::string(2000, 'A'));
+    const std::string data = std::string(1, '\x01') + compressed;
+    const std::string encrypted = crypter.encrypt(data);
+
+    EXPECT_THROW(packet.decode(encrypted), std::length_error);
+}
+
+TEST(SecurePacketTest, RejectOversizedEncryptedPayload) {
+    r_type::SecurePacket packet(testKey());
+
+    EXPECT_THROW(packet.decode(std::string(1188, 'A')), std::length_error);
+}
+
+TEST(SecurePacketTest, AcceptMaximumCompressiblePayload) {
+    r_type::SecurePacket packet(testKey());
+    const std::string data(r_type::MAX_PAYLOAD_SIZE, 'A');
+
+    EXPECT_EQ(packet.decode(packet.encode(data)), data);
 }
