@@ -57,3 +57,14 @@ TEST(CompressorTest, RejectOversizedDecompressedData) {
 
     EXPECT_THROW(compressor.decompress(invalidData), std::length_error);
 }
+
+
+TEST(CompressorTest, RejectCorruptedCompressedData) {
+    r_type::Compressor compressor;
+    const std::string original(1000, 'A');
+    std::string compressed = compressor.compress(original);
+
+    compressed.resize(4);
+
+    EXPECT_THROW(compressor.decompress(compressed), std::runtime_error);
+}
