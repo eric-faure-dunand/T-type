@@ -20,6 +20,7 @@ namespace r_type {
 class SecureSession {
 public:
     using Nonce = std::array<std::uint8_t, 32>;
+    using Confirmation = std::array<std::uint8_t, 32>;
 
     struct Request {
         KeyExchange::Key publicKey;
@@ -39,6 +40,9 @@ public:
     bool complete(const Request& request, const Response& response,
         const ServerIdentity::PublicKey& trustedKey);
 
+    Confirmation confirmation() const;
+    bool confirm(const Confirmation& confirmation);
+
     bool ready() const;
     const KeyDerivation::SessionKeys& keys() const;
 
@@ -49,13 +53,18 @@ private:
         const Nonce& serverNonce);
     static KeyDerivation::Salt deriveSalt(
         const std::vector<std::uint8_t>& transcript);
+    static Confirmation createConfirmation(
+        const KeyDerivation::Key& key,
+        const KeyDerivation::Salt& transcriptHash);
 
     void establish(const KeyExchange::Key& peerKey,
-        const std::vector<std::uint8_t>& transcript);
+        const std::vector<std::uint8_t>& transcript, bool ready);
 
     KeyExchange _exchange;
     Nonce _nonce;
     KeyDerivation::SessionKeys _keys{};
+    KeyDerivation::Salt _transcriptHash{};
+    bool _established = false;
     bool _ready = false;
 };
 
