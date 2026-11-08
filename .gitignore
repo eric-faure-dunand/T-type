@@ -4,3 +4,4 @@ build/
 r-type_server
 cmake.log
 r-type_client
+project/tests/shared/Level/
