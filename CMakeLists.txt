@@ -313,3 +313,25 @@ target_link_libraries(server_identity_tests PRIVATE
 )
 
 gtest_discover_tests(server_identity_tests)
+
+
+# Secure session tests
+
+add_executable(secure_session_tests
+    project/tests/shared/Encryption/test_secure_session.cpp
+    project/src/shared/Encryption/SecureSession.cpp
+    project/src/shared/Encryption/KeyExchange.cpp
+    project/src/shared/Encryption/KeyDerivation.cpp
+    project/src/shared/Encryption/ServerIdentity.cpp
+)
+
+target_include_directories(secure_session_tests PRIVATE
+    project/include/shared
+)
+
+target_link_libraries(secure_session_tests PRIVATE
+    GTest::gtest_main
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(secure_session_tests)
