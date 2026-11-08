@@ -68,6 +68,7 @@ constexpr Rgba ALERT{230, 80, 80, 255};
 constexpr Rgba ENEMY{190, 33, 55, 255};
 constexpr Rgba PROJECTILE{253, 249, 0, 255};
 constexpr Rgba OTHER{130, 130, 130, 255};
+constexpr Rgba BACKGROUND_SHADE{0, 0, 0, 110};
 constexpr Rgba PLAYERS[4] = {{102, 191, 255, 255}, {255, 109, 194, 255}, {0, 200, 80, 255}, {255, 203, 0, 255}};
 }
 
@@ -75,14 +76,20 @@ struct Character {
     const char *name;
     const char *country;
     const char *image;
+    const char *background;
 };
 
 constexpr std::array<Character, 4> CHARACTERS = {{
-    {"Ana", "Argentine", "assets/ships/ana.png"},
-    {"Soha", "Tunisie", "assets/ships/soha.png"},
-    {"Hilal", "Turquie", "assets/ships/hilal.png"},
-    {"Eric", "Corse", "assets/ships/eric.png"},
+    {"Ana", "Argentine", "assets/ships/ana.png", "assets/backgrounds/argentine.png"},
+    {"Soha", "Tunisie", "assets/ships/soha.png", "assets/backgrounds/tunisie.png"},
+    {"Hilal", "Turquie", "assets/ships/hilal.png", "assets/backgrounds/turquie.png"},
+    {"Eric", "Corse", "assets/ships/eric.png", "assets/backgrounds/corse.png"},
 }};
+
+constexpr const char *ENEMY_SPRITE = "enemy";
+constexpr const char *ENEMY_IMAGE = "assets/enemies/ballon.png";
+constexpr const char *MISSILE_SPRITE = "missile";
+constexpr const char *MISSILE_IMAGE = "assets/shots/missile.png";
 
 struct RoomInfo {
     std::uint32_t id = 0;
@@ -169,6 +176,7 @@ class ClientCore {
 
     void ScrollStars(float dt);
     void DrawStars();
+    void DrawBackground();
     void DrawEntities();
     void DrawFace(std::size_t character, float x, float y, float size);
     void DrawMessage(float dt);
