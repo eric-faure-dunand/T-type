@@ -353,3 +353,33 @@ target_link_libraries(replay_window_tests PRIVATE
 )
 
 gtest_discover_tests(replay_window_tests)
+
+
+# Secure transport tests
+
+add_executable(secure_transport_tests
+    project/tests/shared/Network/test_secure_transport.cpp
+    project/src/shared/Network/SecureTransport.cpp
+    project/src/shared/Network/SecureDatagram.cpp
+    project/src/shared/Network/SecurePacket.cpp
+    project/src/shared/Network/ReplayWindow.cpp
+    project/src/shared/Encryption/Crypter.cpp
+    project/src/shared/Compression/Compressor.cpp
+    project/src/shared/Network/packet.cpp
+    project/src/shared/Network/protocol.cpp
+)
+
+target_include_directories(secure_transport_tests PRIVATE
+    project/include/shared
+    project/include/shared/Error
+    project/include/shared/Network
+    project/include/shared/Printer
+)
+
+target_link_libraries(secure_transport_tests PRIVATE
+    GTest::gtest_main
+    OpenSSL::Crypto
+    r_type_lz4
+)
+
+gtest_discover_tests(secure_transport_tests)
