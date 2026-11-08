@@ -10,6 +10,7 @@
 #include "Network/packet.hpp"
 #include <algorithm>
 #include <stdexcept>
+#include <array>
 
 namespace {
 
@@ -109,4 +110,52 @@ TEST(SecureDatagramTest, PreserveErrorCommand) {
     EXPECT_EQ(restored, original);
     ASSERT_TRUE(decoded.ok);
     EXPECT_EQ(decoded.command, r_type::Command::Error);
+}
+
+
+TEST(SecureDatagramTest, RoundTripWithExtraAAD)
+{
+    r_type::SecureDatagram secure(testKey());
+    const auto original = r_type::EncodePacket(
+        r_type::Command::PlayerInput,
+        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
+        r_type::Role::Client
+    );
+    const std::array<std::uint8_t, 8> aad = {0, 0, 0, 0, 0, 0, 0, 1};
+
+    const auto encrypted = secure.encode(original, aad);
+    const auto restored = secure.decode(encrypted, aad);
+
+    EXPECT_EQ(restored, original);
+}
+
+TEST(SecureDatagramTest, RejectWrongExtraAAD)
+{
+    r_type::SecureDatagram secure(testKey());
+    const auto original = r_type::EncodePacket(
+        r_type::Command::PlayerInput,
+        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
+        r_type::Role::Client
+    );
+    const std::array<std::uint8_t, 8> aad = {0, 0, 0, 0, 0, 0, 0, 1};
+    const std::array<std::uint8_t, 8> wrongAAD = {0, 0, 0, 0, 0, 0, 0, 2};
+
+    const auto encrypted = secure.encode(original, aad);
+
+    EXPECT_THROW(secure.decode(encrypted, wrongAAD), std::runtime_error);
+}
+
+TEST(SecureDatagramTest, RejectMissingExtraAAD)
+{
+    r_type::SecureDatagram secure(testKey());
+    const auto original = r_type::EncodePacket(
+        r_type::Command::PlayerInput,
+        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
+        r_type::Role::Client
+    );
+    const std::array<std::uint8_t, 8> aad = {0, 0, 0, 0, 0, 0, 0, 1};
+
+    const auto encrypted = secure.encode(original, aad);
+
+    EXPECT_THROW(secure.decode(encrypted), std::runtime_error);
 }

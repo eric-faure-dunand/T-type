@@ -21,10 +21,12 @@ public:
     explicit SecureDatagram(const Crypter::Key& key);
 
     std::vector<std::uint8_t> encode(
-        std::span<const std::uint8_t> datagram) const;
+        std::span<const std::uint8_t> datagram,
+        std::span<const std::uint8_t> extraAAD = {}) const;
 
     std::vector<std::uint8_t> decode(
-        std::span<const std::uint8_t> datagram) const;
+        std::span<const std::uint8_t> datagram,
+        std::span<const std::uint8_t> extraAAD = {}) const;
 
 private:
     SecurePacket _packet;
