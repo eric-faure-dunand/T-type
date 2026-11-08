@@ -68,3 +68,10 @@ TEST(CompressorTest, RejectCorruptedCompressedData) {
 
     EXPECT_THROW(compressor.decompress(compressed), std::runtime_error);
 }
+
+TEST(CompressorTest, RejectOversizedInput) {
+    r_type::Compressor compressor;
+    const std::string oversized(1024 * 1024 + 1, 'A');
+
+    EXPECT_THROW(compressor.compress(oversized), std::length_error);
+}

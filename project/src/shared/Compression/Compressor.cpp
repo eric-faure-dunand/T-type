@@ -15,7 +15,8 @@
 namespace r_type {
 
 std::string Compressor::compress(const std::string& data) const {
-    if (data.size() > static_cast<std::size_t>(LZ4_MAX_INPUT_SIZE))
+    constexpr std::size_t maxDataSize = 1024 * 1024;
+    if (data.size() > maxDataSize)
         throw std::length_error("Data too large to compress");
 
     const int inputSize = static_cast<int>(data.size());
