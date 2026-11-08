@@ -13,7 +13,6 @@ namespace r_type {
 
 namespace {
 constexpr std::size_t sizeOffset = 11;
-constexpr std::uint8_t secureMarker = 0x80;
 
 std::string toString(std::span<const std::uint8_t> data) {
     return std::string(data.begin(), data.end());
@@ -44,8 +43,6 @@ std::vector<std::uint8_t> SecureDatagram::encode(
     const std::size_t payloadSize = datagram.size() - HEADER_SIZE;
     if (readSize(datagram) != payloadSize)
         throw std::runtime_error("Invalid payload size");
-    if ((datagram[2] & secureMarker) != 0)
-        throw std::runtime_error("Datagram is already marked as encrypted");
 
     const std::string payload = toString(datagram.subspan(HEADER_SIZE));
     const std::size_t encryptedSize = _packet.encodedSize(payload);
@@ -54,7 +51,6 @@ std::vector<std::uint8_t> SecureDatagram::encode(
         throw std::length_error("Encrypted payload exceeds network limit");
 
     std::vector<std::uint8_t> header(datagram.begin(), datagram.begin() + HEADER_SIZE);
-    header[2] |= secureMarker;
     writeSize(header, encryptedSize);
 
     const std::string encrypted = _packet.encode(payload, toString(header));
@@ -71,15 +67,12 @@ std::vector<std::uint8_t> SecureDatagram::decode(
 
     std::vector<std::uint8_t> header(datagram.begin(), datagram.begin() + HEADER_SIZE);
 
-    if ((header[2] & secureMarker) == 0)
-        throw std::runtime_error("Datagram is not encrypted");
     if (readSize(datagram) != datagram.size() - HEADER_SIZE)
         throw std::runtime_error("Invalid encrypted payload size");
 
     const std::string encrypted = toString(datagram.subspan(HEADER_SIZE));
     const std::string decrypted = _packet.decode(encrypted, toString(header));
 
-    header[2] &= static_cast<std::uint8_t>(~secureMarker);
     writeSize(header, decrypted.size());
 
     const auto bytes = toBytes(decrypted);

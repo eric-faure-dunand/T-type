@@ -92,3 +92,21 @@ TEST(SecureDatagramTest, RejectWrongKey) {
 }
 
 }
+
+TEST(SecureDatagramTest, PreserveErrorCommand) {
+    r_type::SecureDatagram secure(testKey());
+    const auto original = r_type::EncodePacket(
+        r_type::Command::Error,
+        {{std::uint8_t{1}, std::uint8_t{2}}},
+        r_type::Role::Server
+    );
+
+    const auto encrypted = secure.encode(original);
+    const auto restored = secure.decode(encrypted);
+    const auto decoded = r_type::DecodePacket(restored, r_type::Role::Client);
+
+    EXPECT_EQ(encrypted[2], static_cast<std::uint8_t>(r_type::Command::Error));
+    EXPECT_EQ(restored, original);
+    ASSERT_TRUE(decoded.ok);
+    EXPECT_EQ(decoded.command, r_type::Command::Error);
+}
