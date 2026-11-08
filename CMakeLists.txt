@@ -15,6 +15,8 @@ project(r-type_server CXX)
 
 include(cmake/CPM.cmake)
 
+find_package(OpenSSL REQUIRED COMPONENTS Crypto)
+
 CPMAddPackage(
     NAME lz4
     GITHUB_REPOSITORY lz4/lz4
@@ -87,7 +89,7 @@ target_include_directories(r-type_server
         project/include/shared/Game
 )
 
-target_link_libraries(r-type_server PRIVATE asio r_type_lz4)
+target_link_libraries(r-type_server PRIVATE asio r_type_lz4 OpenSSL::Crypto)
 
 if(MSVC)
     target_compile_options(r-type_server PRIVATE /W4 /WX /permissive-)
@@ -139,7 +141,7 @@ target_include_directories(r-type_client
         project/include/shared/Game
 )
 
-target_link_libraries(r-type_client PRIVATE asio raylib r_type_lz4)
+target_link_libraries(r-type_client PRIVATE asio raylib r_type_lz4 OpenSSL::Crypto)
 
 if(MSVC)
     target_compile_options(r-type_client PRIVATE /W4 /WX /permissive-)
@@ -177,3 +179,18 @@ target_link_libraries(compressor_tests PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(compressor_tests)
+
+
+# Encryption tests
+add_executable(crypter_tests
+    project/tests/shared/Encryption/test_crypter.cpp
+    project/src/shared/Encryption/Crypter.cpp
+)
+target_include_directories(crypter_tests PRIVATE
+    project/include/shared
+)
+target_link_libraries(crypter_tests PRIVATE
+    GTest::gtest_main
+    OpenSSL::Crypto
+)
+gtest_discover_tests(crypter_tests)
