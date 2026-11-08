@@ -274,3 +274,23 @@ target_link_libraries(key_exchange_tests PRIVATE
 )
 
 gtest_discover_tests(key_exchange_tests)
+
+
+# Key derivation tests
+
+add_executable(key_derivation_tests
+    project/tests/shared/Encryption/test_key_derivation.cpp
+    project/src/shared/Encryption/KeyDerivation.cpp
+    project/src/shared/Encryption/KeyExchange.cpp
+)
+
+target_include_directories(key_derivation_tests PRIVATE
+    project/include/shared
+)
+
+target_link_libraries(key_derivation_tests PRIVATE
+    GTest::gtest_main
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(key_derivation_tests)
