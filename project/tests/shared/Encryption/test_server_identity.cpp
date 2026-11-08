@@ -18,6 +18,14 @@ using namespace r_type;
 
 namespace {
 
+struct FileCloser {
+    void operator()(FILE* file) const
+    {
+        if (file)
+            std::fclose(file);
+    }
+};
+
 using KeyHandle = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
 using KeyContext = std::unique_ptr<EVP_PKEY_CTX, decltype(&EVP_PKEY_CTX_free)>;
 
@@ -41,8 +49,8 @@ protected:
             / ("t-type-ed25519-" + std::to_string(
                 reinterpret_cast<std::uintptr_t>(this)) + ".pem");
 
-        std::unique_ptr<FILE, decltype(&std::fclose)> file(
-            std::fopen(_path.string().c_str(), "wb"), &std::fclose);
+        std::unique_ptr<FILE, FileCloser> file(
+            std::fopen(_path.string().c_str(), "wb"));
         if (!file || PEM_write_PrivateKey(file.get(), key.get(),
             nullptr, nullptr, 0, nullptr, nullptr) != 1)
             throw std::runtime_error("Cannot write test key");

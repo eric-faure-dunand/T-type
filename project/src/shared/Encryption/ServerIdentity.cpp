@@ -15,13 +15,21 @@ namespace r_type {
 
 namespace {
 
-using File = std::unique_ptr<FILE, decltype(&std::fclose)>;
+struct FileCloser {
+    void operator()(FILE* file) const
+    {
+        if (file)
+            std::fclose(file);
+    }
+};
+
+using File = std::unique_ptr<FILE, FileCloser>;
 using SignContext = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 using PublicKeyHandle = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
 
 EVP_PKEY* loadPrivateKey(const std::string& path)
 {
-    File file(std::fopen(path.c_str(), "rb"), &std::fclose);
+    File file(std::fopen(path.c_str(), "rb"));
     if (!file)
         throw std::runtime_error("Cannot open server private key");
     EVP_PKEY* key = PEM_read_PrivateKey(file.get(), nullptr, nullptr, nullptr);
