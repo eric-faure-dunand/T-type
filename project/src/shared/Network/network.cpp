@@ -10,6 +10,10 @@ static std::uint8_t Code(Command command) {
     return static_cast<std::uint8_t>(command);
 }
 
+static TimePoint Now() {
+    return std::chrono::steady_clock::now();
+}
+
 UdpSocket::UdpSocket(Role role, std::size_t maxClients, bool room):
     _role(role), _socket(_context), _maxClients(maxClients), _room(room) {}
 
@@ -132,11 +136,15 @@ void UdpSocket::SetMaxClients(std::size_t maxClients) {
 void UdpSocket::SendTo(const Endpoint& to, Command command, const ArgsList& args) {
     if (!_socket.is_open())
         throw Error("UdpSocket: socket is not open.");
-    const std::vector<std::uint8_t> datagram = EncodePacket(command, args, _role);
-    asio::error_code ec;
-    _socket.send_to(asio::buffer(datagram), to, 0, ec);
-    if (ec)
-        throw Error("UdpSocket: cannot send data" + Reason(ec) + ".");
+    const std::uint32_t messageId = _nextMessageId++;
+    std::vector<Datagram> datagrams = EncodeMessage(command, args, _role, messageId);
+    for (const Datagram& datagram : datagrams) {
+        const asio::error_code ec = Transmit(to, datagram);
+        if (ec)
+            throw Error("UdpSocket: cannot send data" + Reason(ec) + ".");
+    }
+    if (FindCommand(Code(command))->reliable)
+        _channels[to].Track(messageId, std::move(datagrams), Now());
 }
 
 void UdpSocket::Send(Command command, const ArgsList& args) {
@@ -156,7 +164,9 @@ void UdpSocket::SetFallback(FallbackHandler fallback) {
 std::size_t UdpSocket::Poll() {
     if (_context.stopped())
         _context.restart();
-    return _context.poll();
+    const std::size_t handled = _context.poll();
+    Flush();
+    return handled;
 }
 
 std::uint16_t UdpSocket::LocalPort() const {
@@ -176,6 +186,7 @@ void UdpSocket::Close() {
     std::lock_guard<std::mutex> lock(_mutex);
     _clients.clear();
     _announced.clear();
+    _channels.clear();
 }
 
 void UdpSocket::StartReceive() {
@@ -198,20 +209,105 @@ void UdpSocket::OnReceive(const asio::error_code& ec, std::size_t size) {
     StartReceive();
 
     if (result.ok)
-        Handle(sender, result.command, result.args);
+        Handle(sender, result);
     else
         ReplyError(sender, result.error, result.rejectedCommand);
 }
 
-void UdpSocket::Handle(const Endpoint& sender, Command command, const ArgsList& args) {
-    const bool accepted = _role == Role::Server ? HandleHost(sender, command) : HandleClient(sender, command);
-    if (!accepted || Dispatch(sender, command, args))
+void UdpSocket::Handle(const Endpoint& sender, const DecodeResult& packet) {
+    if (packet.command == Command::Ack) {
+        OnAck(sender, packet.args);
+        return;
+    }
+    if (packet.command == Command::Resend) {
+        OnResend(sender, packet.args);
+        return;
+    }
+    const bool reliable = FindCommand(Code(packet.command))->reliable;
+    if (reliable && IsRepeat(sender, packet.messageId))
+        return;
+    const bool accepted = _role == Role::Server ? HandleHost(sender, packet.command) : HandleClient(sender, packet.command);
+    if (!accepted) {
+        if (reliable)
+            Reply(sender, Command::Ack, {{packet.messageId}});
+        return;
+    }
+    if (!reliable) {
+        Deliver(sender, packet.command, packet.args);
+        return;
+    }
+    if (!IsPeer(sender)) {
+        Reply(sender, Command::Ack, {{packet.messageId}});
+        Deliver(sender, packet.command, packet.args);
+        return;
+    }
+    const std::optional<ArgsList> args = _channels[sender].Receive(packet, reliable, Now());
+    if (args)
+        Deliver(sender, packet.command, *args);
+}
+
+void UdpSocket::Deliver(const Endpoint& sender, Command command, const ArgsList& args) {
+    if (Dispatch(sender, command, args))
         return;
     if (command == Command::ConnectRequest || command == Command::ConnectAccept || command == Command::Disconnect)
         return;
     if (_fallback)
         _fallback(sender, command, args);
     ReplyError(sender, NetError::CommandNotHandled, Code(command));
+}
+
+bool UdpSocket::IsRepeat(const Endpoint& sender, std::uint32_t messageId) {
+    const auto channel = _channels.find(sender);
+    return channel != _channels.end() && channel->second.Repeat(messageId);
+}
+
+bool UdpSocket::IsPeer(const Endpoint& sender) const {
+    if (_role == Role::Server)
+        return HasClient(sender);
+    return _host && sender == *_host;
+}
+
+void UdpSocket::OnAck(const Endpoint& sender, const ArgsList& acks) {
+    const auto channel = _channels.find(sender);
+    if (channel == _channels.end())
+        return;
+    for (const Args& ack : acks)
+        channel->second.Acknowledge(std::get<std::uint32_t>(ack[0]));
+}
+
+void UdpSocket::OnResend(const Endpoint& sender, const ArgsList& requests) {
+    const auto channel = _channels.find(sender);
+    if (channel == _channels.end())
+        return;
+    for (const Args& request : requests) {
+        const Datagram *datagram = channel->second.FindFragment(
+            std::get<std::uint32_t>(request[0]), std::get<std::uint32_t>(request[1]));
+        if (datagram)
+            Transmit(sender, *datagram);
+    }
+}
+
+asio::error_code UdpSocket::Transmit(const Endpoint& to, const Datagram& datagram) {
+    asio::error_code ec;
+    _socket.send_to(asio::buffer(datagram), to, 0, ec);
+    return ec;
+}
+
+void UdpSocket::Flush() {
+    if (!_socket.is_open())
+        return;
+    const TimePoint now = Now();
+    for (auto it = _channels.begin(); it != _channels.end();) {
+        const Endpoint peer = it->first;
+        const Channel::Output output = it->second.Update(now);
+        for (const Datagram& datagram : output.resend)
+            Transmit(peer, datagram);
+        if (!output.acks.empty())
+            Reply(peer, Command::Ack, output.acks);
+        if (!output.requests.empty())
+            Reply(peer, Command::Resend, output.requests);
+        it = it->second.Idle() ? _channels.erase(it) : std::next(it);
+    }
 }
 
 bool UdpSocket::HandleHost(const Endpoint& sender, Command command) {
@@ -231,6 +327,13 @@ bool UdpSocket::HandleHost(const Endpoint& sender, Command command) {
 }
 
 bool UdpSocket::Drop(const Endpoint& client) {
+    const auto channel = _channels.find(client);
+    if (channel != _channels.end()) {
+        const ArgsList acks = channel->second.TakeAcks();
+        if (!acks.empty())
+            Reply(client, Command::Ack, acks);
+        _channels.erase(channel);
+    }
     std::lock_guard<std::mutex> lock(_mutex);
     return std::erase(_clients, client) > 0;
 }
@@ -276,14 +379,11 @@ bool UdpSocket::Dispatch(const Endpoint& sender, Command command, const ArgsList
 }
 
 void UdpSocket::Reply(const Endpoint& to, Command command, const ArgsList& args) {
-    std::vector<std::uint8_t> datagram;
     try {
-        datagram = EncodePacket(command, args, _role);
+        SendTo(to, command, args);
     } catch (const Error&) {
         return;
     }
-    asio::error_code ec;
-    _socket.send_to(asio::buffer(datagram), to, 0, ec);
 }
 
 void UdpSocket::ReplyError(const Endpoint& to, NetError error, std::uint8_t rejectedCommand) {
