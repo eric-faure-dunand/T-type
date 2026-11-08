@@ -383,3 +383,39 @@ target_link_libraries(secure_transport_tests PRIVATE
 )
 
 gtest_discover_tests(secure_transport_tests)
+
+
+# Secure session manager tests
+
+add_executable(secure_session_manager_tests
+    project/tests/shared/Network/test_secure_session_manager.cpp
+    project/src/shared/Network/SecureSessionManager.cpp
+    project/src/shared/Network/SecureTransport.cpp
+    project/src/shared/Network/SecureDatagram.cpp
+    project/src/shared/Network/SecurePacket.cpp
+    project/src/shared/Network/ReplayWindow.cpp
+    project/src/shared/Network/packet.cpp
+    project/src/shared/Network/protocol.cpp
+    project/src/shared/Encryption/SecureSession.cpp
+    project/src/shared/Encryption/KeyExchange.cpp
+    project/src/shared/Encryption/KeyDerivation.cpp
+    project/src/shared/Encryption/ServerIdentity.cpp
+    project/src/shared/Encryption/Crypter.cpp
+    project/src/shared/Compression/Compressor.cpp
+)
+
+target_include_directories(secure_session_manager_tests PRIVATE
+    project/include/shared
+    project/include/shared/Network
+    project/include/shared/Error
+    project/include/shared/Printer
+)
+
+target_link_libraries(secure_session_manager_tests PRIVATE
+    GTest::gtest_main
+    r_type_lz4
+    OpenSSL::Crypto
+    asio
+)
+
+gtest_discover_tests(secure_session_manager_tests)
