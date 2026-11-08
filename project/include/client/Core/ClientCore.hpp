@@ -71,6 +71,19 @@ constexpr Rgba OTHER{130, 130, 130, 255};
 constexpr Rgba PLAYERS[4] = {{102, 191, 255, 255}, {255, 109, 194, 255}, {0, 200, 80, 255}, {255, 203, 0, 255}};
 }
 
+struct Character {
+    const char *name;
+    const char *country;
+    const char *image;
+};
+
+constexpr std::array<Character, 4> CHARACTERS = {{
+    {"Ana", "Argentine", "assets/ships/ana.png"},
+    {"Soha", "Tunisie", "assets/ships/soha.png"},
+    {"Hilal", "Turquie", "assets/ships/hilal.png"},
+    {"Eric", "Corse", "assets/ships/eric.png"},
+}};
+
 struct RoomInfo {
     std::uint32_t id = 0;
     std::uint8_t freeSlots = 0;
@@ -81,6 +94,7 @@ class ClientCore {
         Menu,
         Connecting,
         Lobby,
+        Character,
         Joining,
         Game,
         Leaving
@@ -111,6 +125,8 @@ class ClientCore {
     std::vector<RoomInfo> _rooms;
     std::size_t _selected = 0;
     float _refreshTimer = 0.f;
+    std::uint8_t _character = 0;
+    std::optional<std::uint32_t> _joinTarget;
     std::set<Action> _held;
     std::map<Action, int> _releases;
     float _inputTimer = 0.f;
@@ -147,12 +163,14 @@ class ClientCore {
 
     void MenuFrame();
     void LobbyFrame(float dt);
+    void CharacterFrame(float dt);
     void GameFrame(float dt);
     void WaitingFrame(const std::string& text);
 
     void ScrollStars(float dt);
     void DrawStars();
     void DrawEntities();
+    void DrawFace(std::size_t character, float x, float y, float size);
     void DrawMessage(float dt);
     void DrawCentered(const std::string& text, int y, int size, Rgba color);
     bool Button(const std::string& label, float x, float y, float width, float height);

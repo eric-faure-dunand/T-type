@@ -14,6 +14,8 @@ constexpr float kWorldWidth = 1280.f;
 constexpr float kWorldHeight = 720.f;
 constexpr float kDespawnMargin = 100.f;
 
+constexpr int kCharacterCount = 4;
+
 constexpr float kPlayerSpeed = 320.f;
 constexpr float kPlayerWidth = 48.f;
 constexpr float kPlayerHeight = 24.f;

@@ -14,6 +14,8 @@ namespace r_type::client {
 ClientCore::ClientCore(std::string ip):
     _display(WINDOW_WIDTH, WINDOW_HEIGHT, "R-Type"), _net(Role::Client), _ip(std::move(ip)) {
     RegisterHandlers();
+    for (const Character& character : CHARACTERS)
+        _display.LoadSprite(character.name, character.image);
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> x(0.f, static_cast<float>(WINDOW_WIDTH));
     std::uniform_real_distribution<float> y(0.f, static_cast<float>(WINDOW_HEIGHT));
@@ -50,6 +52,9 @@ void ClientCore::Run() {
                 break;
             case Scene::Lobby:
                 LobbyFrame(dt);
+                break;
+            case Scene::Character:
+                CharacterFrame(dt);
                 break;
             case Scene::Joining:
                 WaitingFrame("Entering the room...");
@@ -144,6 +149,19 @@ void ClientCore::DrawMessage(float dt) {
 
 void ClientCore::DrawCentered(const std::string& text, int y, int size, Rgba color) {
     _display.Print(text, (WINDOW_WIDTH - _display.TextWidth(text, size)) / 2, y, size, color);
+}
+
+void ClientCore::DrawFace(std::size_t character, float x, float y, float size) {
+    const Character& info = CHARACTERS[character];
+    if (_display.HasSprite(info.name)) {
+        _display.DrawSprite(info.name, x, y, size, size);
+        return;
+    }
+    _display.FillCircle(x + size / 2.f, y + size / 2.f, size / 2.f, palette::PLAYERS[character]);
+    const std::string initial(1, info.name[0]);
+    const int textSize = static_cast<int>(size / 2.f);
+    _display.Print(initial, static_cast<int>(x + (size - static_cast<float>(_display.TextWidth(initial, textSize))) / 2.f),
+        static_cast<int>(y + (size - static_cast<float>(textSize)) / 2.f), textSize, palette::BACKGROUND);
 }
 
 bool ClientCore::Button(const std::string& label, float x, float y, float width, float height) {

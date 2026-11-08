@@ -27,6 +27,7 @@ enum class Command : std::uint8_t {
     RoomList = 0x08,
     DisconnectRoom = 0x09,
     PlayerInput = 0x10,
+    ChooseCharacter = 0x11,
     InitialStateBegin = 0x20,
     EntityUpdate = 0x21,
     EntitySpawn = 0x22,
