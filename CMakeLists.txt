@@ -294,3 +294,22 @@ target_link_libraries(key_derivation_tests PRIVATE
 )
 
 gtest_discover_tests(key_derivation_tests)
+
+
+# Server identity tests
+
+add_executable(server_identity_tests
+    project/tests/shared/Encryption/test_server_identity.cpp
+    project/src/shared/Encryption/ServerIdentity.cpp
+)
+
+target_include_directories(server_identity_tests PRIVATE
+    project/include/shared
+)
+
+target_link_libraries(server_identity_tests PRIVATE
+    GTest::gtest_main
+    OpenSSL::Crypto
+)
+
+gtest_discover_tests(server_identity_tests)
