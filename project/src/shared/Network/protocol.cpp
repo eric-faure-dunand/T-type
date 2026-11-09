@@ -24,7 +24,7 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     // entity_id, input_flags, input_state
     {Command::PlayerInput, {Direction::ClientToServer, {ArgType::U32, ArgType::U8, ArgType::U8}}},
     // entity_id, character
-    {Command::ChooseCharacter, {Direction::ClientToServer, {ArgType::U32, ArgType::U8}}},
+    {Command::ChooseCharacter, {Direction::ClientToServer, {ArgType::U32, ArgType::U8}, false, false, true}},
     // entity_count
     {Command::InitialStateBegin, {Direction::ServerToClient, {ArgType::U32}, false, false, true}},
     // list of: entity_id, x, y

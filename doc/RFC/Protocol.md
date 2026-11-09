@@ -39,7 +39,7 @@ Part 1 constraints:
 | `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | yes | List the rooms with free slots |
 | `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | yes | Leave the room, giving the player entity |
 | `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | no | Submit input press/release events for a controlled entity |
-| `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | Ask to play a given character |
+| `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | yes | Ask to play a given character |
 | `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | yes | Begin an initial state transfer |
 | `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 × N | no | Publish the authoritative positions of the entities |
 | `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 × N | yes | Create or refresh entity representations |
@@ -154,7 +154,7 @@ The server checks that the sender is allowed to control `entity_id`. Actions are
 | 0 | `entity_id` | uint32 | Player entity controlled by the client in this room |
 | 4 | `character` | uint8 | `0x00` Ana, `0x01` Soha, `0x02` Hilal, `0x03` Eric; others reserved |
 
-Sent by a client after `PLAYER_CREATION`, when the character it picked differs from the one the room gave it. Never answered directly. If no other player of the room plays this character, the room gives it to the sender and sends `ENTITY_SPAWN` for the player entity to every client, with the new character in `color`. Otherwise the request is ignored and the player keeps its character. The room checks that the sender controls `entity_id`.
+Sent by a client after `PLAYER_CREATION`, when the character it picked differs from the one the room gave it. Never answered directly. If no other player of the room plays this character, the room gives it to the sender and sends `ENTITY_SPAWN` for the player entity to every client, with the new character in `color`. Otherwise the request is ignored and the player keeps its character. The room checks that the sender controls `entity_id`. The client sends it once and never repeats it, so the command is reliable (§3.2): a lost datagram is retransmitted by the network layer.
 
 ### `INITIAL_STATE_BEGIN` (`0x20`)
 
