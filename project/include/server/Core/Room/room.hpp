@@ -61,6 +61,7 @@ class Room {
 
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
     void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
+    void HandleChooseCharacter(const Endpoint& from, const ArgsList& args);
     void HandlePlayerConnection(const Endpoint& from);
     void SendInitialState(const Endpoint& client);
     void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);

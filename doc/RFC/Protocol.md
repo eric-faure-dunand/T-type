@@ -39,6 +39,7 @@ Part 1 constraints:
 | `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | yes | List the rooms with free slots |
 | `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | yes | Leave the room, giving the player entity |
 | `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | no | Submit input press/release events for a controlled entity |
+| `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | Ask to play a given character |
 | `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | yes | Begin an initial state transfer |
 | `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 × N | no | Publish the authoritative positions of the entities |
 | `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 × N | yes | Create or refresh entity representations |
@@ -146,6 +147,15 @@ Because UDP can lose packets, the client repeats the `Pressed` event of every he
 
 The server checks that the sender is allowed to control `entity_id`. Actions are requests, never a client-provided resulting position. Input rate limiting and replay handling belong in the server implementation.
 
+### `CHOOSE_CHARACTER` (`0x11`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | Player entity controlled by the client in this room |
+| 4 | `character` | uint8 | `0x00` Ana, `0x01` Soha, `0x02` Hilal, `0x03` Eric; others reserved |
+
+Sent by a client after `PLAYER_CREATION`, when the character it picked differs from the one the room gave it. Never answered directly. If no other player of the room plays this character, the room gives it to the sender and sends `ENTITY_SPAWN` for the player entity to every client, with the new character in `color`. Otherwise the request is ignored and the player keeps its character. The room checks that the sender controls `entity_id`.
+
 ### `INITIAL_STATE_BEGIN` (`0x20`)
 
 | Offset | Field | Type | Description |
@@ -176,7 +186,7 @@ A list of records, one per entity. `Size` must be a multiple of 14. A datagram h
 | 4 | `entity_kind` | uint8 | `0x01` player ship, `0x02` enemy, `0x03` projectile; others reserved |
 | 5 | `x` | int32 | Initial authoritative X coordinate |
 | 9 | `y` | int32 | Initial authoritative Y coordinate |
-| 13 | `color` | uint8 | Player colour index, `0` to `3`, chosen by the server and unique among the players of the room; `0` and ignored for non-player entities |
+| 13 | `color` | uint8 | Player character, `0` to `3` (see `CHOOSE_CHARACTER`), unique among the players of the room; it also gives the player colour. `0` and ignored for non-player entities |
 
 `entity_kind` is a rendering/spawning hint, not a C++ class identity. The `entity_kind` values are the approved Part 1 wire-level baseline from issue #9; adding more kinds or ECS fields requires a documented protocol revision. A duplicate spawn for the same live entity must not create a second entity.
 
@@ -205,7 +215,7 @@ A matching count alone does **not** prove the transfer is complete. The rules in
 | 0 | `entity_id` | uint32 | Player entity controlled by this client |
 | 4 | `x` | int32 | Initial authoritative X coordinate |
 | 8 | `y` | int32 | Initial authoritative Y coordinate |
-| 12 | `color` | uint8 | Player colour index, `0` to `3` |
+| 12 | `color` | uint8 | Player character, `0` to `3`: the first one free in the room (see `CHOOSE_CHARACTER`) |
 
 Sent by the room to one client only, right after it accepted its `CONNECT_REQUEST`. It is the only way for a client to learn the `entity_id` to put in `PLAYER_INPUT` and `DISCONNECT_ROOM`; until it is received, the client sends no input. The other clients learn about this player through a regular `ENTITY_SPAWN`. A duplicate `PLAYER_CREATION` for the same entity must not create a second entity.
 

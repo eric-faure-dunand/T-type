@@ -13,8 +13,11 @@ void ClientCore::OnPlayerCreation(const ArgsList& args) {
     if ((_scene != Scene::Game && _scene != Scene::Joining) || _roomPort == 0
         || args.size() != 1 || args[0].size() != 4)
         return;
-    _world.SetPlayer(std::get<std::uint32_t>(args[0][0]), std::get<std::int32_t>(args[0][1]),
-        std::get<std::int32_t>(args[0][2]), std::get<std::uint8_t>(args[0][3]));
+    const std::uint32_t id = std::get<std::uint32_t>(args[0][0]);
+    const std::uint8_t character = std::get<std::uint8_t>(args[0][3]);
+    _world.SetPlayer(id, std::get<std::int32_t>(args[0][1]), std::get<std::int32_t>(args[0][2]), character);
+    if (character != _character)
+        Send(Command::ChooseCharacter, {{id, _character}});
 }
 
 void ClientCore::OnInitialStateBegin(const ArgsList& args) {

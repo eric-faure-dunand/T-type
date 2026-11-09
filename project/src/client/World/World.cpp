@@ -16,6 +16,8 @@ World::World() {
 }
 
 void World::Spawn(const EntityData& data) {
+    if (_player == data.id && data.kind == KIND_PLAYER)
+        _playerColor = data.color;
     const auto it = _entities.find(data.id);
     if (it != _entities.end()) {
         _registry.get<Transform>(it->second) = {static_cast<float>(data.x), static_cast<float>(data.y)};

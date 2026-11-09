@@ -64,11 +64,11 @@ void ClientCore::LobbyFrame(float dt) {
         clicked = _selected;
 
     if (clicked) {
-        Send(Command::JoinRoom, {{_rooms[*clicked].id}});
-        SetScene(Scene::Joining);
+        _joinTarget = _rooms[*clicked].id;
+        SetScene(Scene::Character);
     } else if (create || _display.IsKeyPressed(Key::C)) {
-        Send(Command::CreateRoom, {{}});
-        SetScene(Scene::Joining);
+        _joinTarget.reset();
+        SetScene(Scene::Character);
     } else if (refresh || _display.IsKeyPressed(Key::R)) {
         Send(Command::ListRooms, {{}});
     } else if (back || _display.IsKeyPressed(Key::Escape)) {

@@ -17,6 +17,10 @@ static ::Color ToRaylib(Rgba color) {
     return ::Color{color.r, color.g, color.b, color.a};
 }
 
+static ::Texture2D ToRaylib(const Sprite& sprite) {
+    return ::Texture2D{sprite.id, sprite.width, sprite.height, sprite.mipmaps, sprite.format};
+}
+
 static int ToRaylib(Key key) {
     switch (key) {
         case Key::Up:
@@ -53,6 +57,8 @@ Display::Display(int width, int height, const std::string& title): _width(width)
 }
 
 Display::~Display() {
+    for (const auto& [name, sprite] : _sprites)
+        UnloadTexture(ToRaylib(sprite));
     CloseWindow();
 }
 
@@ -95,6 +101,33 @@ void Display::Print(const std::string& text, int x, int y, int size, Rgba color)
 
 int Display::TextWidth(const std::string& text, int size) const {
     return MeasureText(text.c_str(), size);
+}
+
+bool Display::LoadSprite(const std::string& name, const std::string& path) {
+    if (!FileExists(path.c_str()))
+        return false;
+    const ::Texture2D texture = LoadTexture(path.c_str());
+    if (texture.id == 0)
+        return false;
+    SetTextureFilter(texture, TEXTURE_FILTER_BILINEAR);
+    const auto old = _sprites.find(name);
+    if (old != _sprites.end())
+        UnloadTexture(ToRaylib(old->second));
+    _sprites[name] = Sprite{texture.id, texture.width, texture.height, texture.mipmaps, texture.format};
+    return true;
+}
+
+bool Display::HasSprite(const std::string& name) const {
+    return _sprites.contains(name);
+}
+
+void Display::DrawSprite(const std::string& name, float x, float y, float width, float height) {
+    const auto it = _sprites.find(name);
+    if (it == _sprites.end())
+        return;
+    const ::Texture2D texture = ToRaylib(it->second);
+    const Rectangle source{0.f, 0.f, static_cast<float>(texture.width), static_cast<float>(texture.height)};
+    DrawTexturePro(texture, source, Rectangle{x, y, width, height}, Vector2{0.f, 0.f}, 0.f, WHITE);
 }
 
 bool Display::IsKeyDown(Key key) const {
