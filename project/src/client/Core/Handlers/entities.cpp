@@ -48,42 +48,52 @@ void ClientCore::OnInitialStateEnd(const ArgsList& args) {
 }
 
 void ClientCore::OnEntitySpawn(const ArgsList& args) {
-    if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 5)
+    if (_scene != Scene::Game)
         return;
-    const EntityData entity{std::get<std::uint32_t>(args[0][0]), std::get<std::uint8_t>(args[0][1]),
-        std::get<std::int32_t>(args[0][2]), std::get<std::int32_t>(args[0][3]),
-        std::get<std::uint8_t>(args[0][4])};
-    if (_destroyed.contains(entity.id))
-        return;
-    if (!_transfer) {
-        _world.Spawn(entity);
-        return;
+    for (const Args& record : args) {
+        if (record.size() != 5)
+            continue;
+        const EntityData entity{std::get<std::uint32_t>(record[0]), std::get<std::uint8_t>(record[1]),
+            std::get<std::int32_t>(record[2]), std::get<std::int32_t>(record[3]),
+            std::get<std::uint8_t>(record[4])};
+        if (_destroyed.contains(entity.id))
+            continue;
+        if (!_transfer)
+            _world.Spawn(entity);
+        else if (_transfer->entities.size() < _transfer->expected || _transfer->entities.contains(entity.id))
+            _transfer->entities[entity.id] = entity;
     }
-    if (_transfer->entities.size() < _transfer->expected || _transfer->entities.contains(entity.id))
-        _transfer->entities[entity.id] = entity;
 }
 
 void ClientCore::OnEntityUpdate(const ArgsList& args) {
-    if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 3)
+    if (_scene != Scene::Game)
         return;
-    const std::uint32_t id = std::get<std::uint32_t>(args[0][0]);
-    if (!_destroyed.contains(id))
-        _world.Update(id, std::get<std::int32_t>(args[0][1]), std::get<std::int32_t>(args[0][2]));
+    for (const Args& record : args) {
+        if (record.size() != 3)
+            continue;
+        const std::uint32_t id = std::get<std::uint32_t>(record[0]);
+        if (!_destroyed.contains(id))
+            _world.Update(id, std::get<std::int32_t>(record[1]), std::get<std::int32_t>(record[2]));
+    }
 }
 
 void ClientCore::OnEntityDestroy(const ArgsList& args) {
-    if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 1)
+    if (_scene != Scene::Game)
         return;
-    const std::uint32_t id = std::get<std::uint32_t>(args[0][0]);
-    if (_world.Player() == id) {
-        Send(Command::DisconnectRoom, {{id}});
-        ReturnToLobby();
-        return;
+    for (const Args& record : args) {
+        if (record.size() != 1)
+            continue;
+        const std::uint32_t id = std::get<std::uint32_t>(record[0]);
+        if (_world.Player() == id) {
+            Send(Command::DisconnectRoom, {{id}});
+            ReturnToLobby();
+            return;
+        }
+        _destroyed.insert(id);
+        if (_transfer)
+            _transfer->entities.erase(id);
+        _world.Destroy(id);
     }
-    _destroyed.insert(id);
-    if (_transfer)
-        _transfer->entities.erase(id);
-    _world.Destroy(id);
 }
 
 }

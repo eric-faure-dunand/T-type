@@ -10,11 +10,11 @@ This document specifies which game data crosses the client/server boundary. It d
 |---|---|---|---|---|
 | Network identity | `entity_id: uint32` | Server → client | On spawn, update and destruction | `ENTITY_SPAWN`, `ENTITY_UPDATE`, `ENTITY_DESTROY` |
 | Entity kind / rendering hint | `entity_kind: uint8` | Server → client | On spawn and initial sync | `ENTITY_SPAWN` |
-| Position / Transform | `x: int32`, `y: int32` (absolute world coordinates) | Server → client | Target **20 Hz** for active moving entities; initial state on join | `ENTITY_UPDATE`, `ENTITY_SPAWN` |
+| Position / Transform | `x: int32`, `y: int32` (absolute world coordinates) | Server → client | **20 Hz** for active moving entities, as one list per client; initial state on join | `ENTITY_UPDATE`, `ENTITY_SPAWN` |
 | Controlled entity association | `controlled_entity_id: uint32` | Server → owning client | Not assigned on connection; to be defined with room creation / join | — |
 | Input intention | `entity_id: uint32`, `action: uint8`, `input_state: uint8` (one action per packet) | Client → server | Target **30 Hz max**, and on input changes | `PLAYER_INPUT` |
 | Entity existence | `entity_id: uint32` | Server → client | On creation and destruction | `ENTITY_SPAWN`, `ENTITY_DESTROY` |
-| Initial entity set | `entity_count: uint32`, then one spawn per entity | Server → joining client | Once per initial sync/retry | `INITIAL_STATE_BEGIN`, `ENTITY_SPAWN`, `INITIAL_STATE_END` |
+| Initial entity set | `entity_count: uint32`, then one spawn list holding one record per entity | Server → joining client | Once per initial sync/retry | `INITIAL_STATE_BEGIN`, `ENTITY_SPAWN`, `INITIAL_STATE_END` |
 
 **Encoding:** All multibyte integers are big-endian. Entity IDs are assigned by the server. Positions use signed 32-bit integer world units, matching the existing Issue #19 RFC; they are **not** `float32`. A client may interpolate locally for rendering, but interpolation state is not authoritative and is not transmitted.
 
@@ -33,10 +33,10 @@ A player initially controls a ship entity, but the network model allows the serv
 ## Synchronization policy
 
 - **Input:** Send one `PLAYER_INPUT` per action on change, and repeat held actions periodically (every 100 ms) and each release a few times. A lost input packet must not leave movement stuck forever; server-side input expiry/timeout is required in the implementation.
-- **Movement:** Send latest absolute positions at a target 20 Hz, rather than only relative deltas, to recover from lost UDP updates. Tune rates after bandwidth/latency measurements.
-- **Spawn/destroy:** Send when events occur. UDP is not reliable; implementation must provide event recovery or resynchronization. This document does not claim reliable delivery is implemented.
-- **Initial sync:** Send `INITIAL_STATE_BEGIN`, one `ENTITY_SPAWN` per entity, and `INITIAL_STATE_END`. Validate expected entity count. Missing packets require a retry/resync; a partial initial state must not be treated as complete.
-- **Packet size:** Preserve the existing 13-byte header and 1200-byte maximum UDP datagram defined by issue #19. No application-level fragmentation in Part 1.
+- **Movement:** Send latest absolute positions at 20 Hz, rather than only relative deltas, to recover from lost UDP updates. All the positions go in one `ENTITY_UPDATE` list per client and per period. Tune rates after bandwidth/latency measurements.
+- **Spawn/destroy:** Send when events occur, grouping the events of the same tick in one list per client. `ENTITY_SPAWN` and `ENTITY_DESTROY` are reliable ([Protocol.md](Protocol.md) §3.2): they are acknowledged and retransmitted. A message abandoned after its last retransmission still requires resynchronization.
+- **Initial sync:** Send `INITIAL_STATE_BEGIN`, one `ENTITY_SPAWN` list with one record per entity, and `INITIAL_STATE_END`. Validate expected entity count. Missing packets require a retry/resync; a partial initial state must not be treated as complete.
+- **Packet size:** Preserve the 1200-byte maximum UDP datagram defined by issue #19. The header is 17 bytes since the message id was added, and list commands may be fragmented ([Protocol.md](Protocol.md) §1 and §3.2).
 
 ## Dependencies and follow-up
 
