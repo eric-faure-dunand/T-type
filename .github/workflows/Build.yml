@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             compiler: gcc
             cc: gcc
             cxx: g++
@@ -27,8 +27,7 @@ jobs:
       - name: Configure (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo sed -i 's|mirror+file:/etc/apt/apt-mirrors.txt|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
-          sudo apt-get update
+          sudo apt-get update -o APT::Update::Error-Mode=any
           sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libgl1-mesa-dev libasound2-dev
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
