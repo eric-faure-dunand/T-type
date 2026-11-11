@@ -32,7 +32,7 @@ void ClientCore::ConnectServer() {
 void ClientCore::ReturnToLobby() {
     ResetRoom();
     try {
-        _net.Connect(_ip, _net.ServerPort());
+        _net.Connect(_ip, DEFAULT_PORT);
         SetScene(Scene::Leaving);
     } catch (const IError&) {
         GoOffline("Connection to the server lost");
@@ -56,9 +56,13 @@ void ClientCore::SayGoodbye() {
     try {
         asio::error_code ec;
         const asio::ip::address address = asio::ip::make_address(_ip, ec);
-        if (!ec)
-            _net.SendTo(Endpoint(address, _net.ServerPort()), Command::Disconnect, {{}});
-    } catch (const IError&) {
+        if (!ec) {
+            const Endpoint server(address, _net.ServerPort());
+
+            if (_net.HasSecureSession(server))
+                _net.SendTo(server, Command::Disconnect, {{}});
+        }
+    } catch (const std::exception&) {
         return;
     }
 }

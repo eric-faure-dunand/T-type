@@ -103,7 +103,8 @@ static Datagram EncodeFragment(const CommandInfo& info, std::uint8_t code, std::
     return datagram;
 }
 
-std::vector<Datagram> EncodeMessage(Command command, const ArgsList& argsList, Role role, std::uint32_t messageId) {
+std::vector<Datagram> EncodeMessage(Command command, const ArgsList& argsList,
+    Role role, std::uint32_t messageId, std::size_t maxPayloadSize) {
     const std::uint8_t code = static_cast<std::uint8_t>(command);
     const CommandInfo *info = FindCommand(code);
 
@@ -115,11 +116,13 @@ std::vector<Datagram> EncodeMessage(Command command, const ArgsList& argsList, R
         throw Error("Packet: command " + Hex(code) + " must carry exactly one record.");
 
     const std::size_t recordSize = SchemaSize(info->schema);
-    if (recordSize > MAX_PAYLOAD_SIZE)
+    if (maxPayloadSize == 0 || maxPayloadSize > MAX_PAYLOAD_SIZE)
+        throw Error("Packet: invalid maximum payload size.");
+    if (recordSize > maxPayloadSize)
         throw Error("Packet: command " + Hex(code) + " record of " + std::to_string(recordSize)
             + " bytes exceeds " + std::to_string(MAX_PAYLOAD_SIZE) + ".");
 
-    const std::size_t perDatagram = recordSize == 0 ? 1 : MAX_PAYLOAD_SIZE / recordSize;
+    const std::size_t perDatagram = recordSize == 0 ? 1 : maxPayloadSize / recordSize;
     const std::size_t count = std::max<std::size_t>(1, (argsList.size() + perDatagram - 1) / perDatagram);
     if (count > MAX_FRAGMENTS)
         throw Error("Packet: command " + Hex(code) + " needs " + std::to_string(count)

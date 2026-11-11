@@ -32,6 +32,7 @@ Room::Room(std::uint32_t id):
     net.SetFallback([this](const Endpoint& from, Command command, const ArgsList& args) {
         DebugFallback(from, command, args);
     });
+    net.SetServerIdentity(SecurityConfig::serverPrivateKeyPath());
     net.Bind(0);
     _port = net.LocalPort();
 }

@@ -12,6 +12,8 @@
     #include <optional>
     #include <string>
     #include <vector>
+    #include <iostream>
+    #include <chrono>
 
     #include <asio/io_context.hpp>
     #include <asio/ip/udp.hpp>
@@ -24,6 +26,12 @@
     #include <algorithm>
     #include <span>
     #include <utility>
+
+    #include "Encryption/ServerIdentity.hpp"
+    #include "Encryption/SecureSession.hpp"
+    #include "Network/SecureHandshake.hpp"
+    #include "Network/SecureSessionManager.hpp"
+    #include <memory>
 
 namespace r_type {
 
@@ -50,8 +58,23 @@ class UdpSocket {
     std::map<Endpoint, Channel> _channels;
     std::uint32_t _nextMessageId = 1;
 
+    std::unique_ptr<ServerIdentity> _identity;
+    std::optional<ServerIdentity::PublicKey> _trustedServerKey;
+    std::map<Endpoint, SecureSession> _pendingSessions;
+    std::map<Endpoint, std::chrono::steady_clock::time_point> _pendingSince;
+    SecureSessionManager _secureSessions;
+
     void Open(const Endpoint& local);
     void StartReceive();
+    void StartHandshake(const Endpoint& server);
+    void HandleHandshake(const Endpoint& sender,
+        std::span<const std::uint8_t> datagram);
+    void HandleHandshakeRequest(const Endpoint& sender,
+        std::span<const std::uint8_t> datagram);
+    void HandleHandshakeResponse(const Endpoint& sender,
+        std::span<const std::uint8_t> datagram);
+    void HandleHandshakeConfirmation(const Endpoint& sender,
+        std::span<const std::uint8_t> datagram);
     void OnReceive(const asio::error_code& ec, std::size_t size);
     void Handle(const Endpoint& sender, const DecodeResult& packet);
     void Deliver(const Endpoint& sender, Command command, const ArgsList& args);
@@ -68,6 +91,10 @@ class UdpSocket {
     bool Dispatch(const Endpoint& sender, Command command, const ArgsList& args) const;
     void Reply(const Endpoint& to, Command command, const ArgsList& args);
     void ReplyError(const Endpoint& to, NetError error, std::uint8_t rejectedCommand);
+
+    void SendHandshakeReady(const Endpoint& client);
+
+    void ClearExpiredHandshakes();
 
 public:
     explicit UdpSocket(Role role, std::size_t maxClients = 0, bool room = false);
@@ -102,6 +129,11 @@ public:
     std::uint16_t LocalPort() const;
     bool IsOpen() const {return _socket.is_open();};
     void Close();
+
+    void SetServerIdentity(const std::string& privateKeyPath);
+    void SetTrustedServerKey(const ServerIdentity::PublicKey& publicKey);
+
+    bool HasSecureSession(const Endpoint& endpoint) const;
 };
 
 }
