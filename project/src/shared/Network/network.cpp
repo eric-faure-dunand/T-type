@@ -15,7 +15,153 @@ static TimePoint Now() {
 }
 
 UdpSocket::UdpSocket(Role role, std::size_t maxClients, bool room):
-    _role(role), _socket(_context), _maxClients(maxClients), _room(room) {}
+    _role(role),
+    _socket(_context),
+    _maxClients(maxClients),
+    _room(room),
+    _secureSessions(role == Role::Client
+        ? SecureTransport::Role::Client
+        : SecureTransport::Role::Server)
+{
+}
+
+void UdpSocket::SetServerIdentity(const std::string& privateKeyPath)
+{
+    if (_role != Role::Server)
+        throw Error("UdpSocket: only a server can set its identity.");
+    _identity = std::make_unique<ServerIdentity>(privateKeyPath);
+}
+
+void UdpSocket::SetTrustedServerKey(
+    const ServerIdentity::PublicKey& publicKey)
+{
+    if (_role != Role::Client)
+        throw Error("UdpSocket: only a client can set a trusted server key.");
+    _trustedServerKey = publicKey;
+}
+
+void UdpSocket::StartHandshake(const Endpoint& server)
+{
+    if (!_trustedServerKey)
+        throw Error("UdpSocket: trusted server key is not configured.");
+
+    _pendingSessions.erase(server);
+    _secureSessions.remove(server);
+
+    auto [it, inserted] = _pendingSessions.try_emplace(server);
+    const Datagram request = SecureHandshake::encode(it->second.request());
+
+    asio::error_code ec;
+    _socket.send_to(asio::buffer(request), server, 0, ec);
+    if (ec) {
+        _pendingSessions.erase(server);
+        throw Error("UdpSocket: cannot send handshake" + Reason(ec) + ".");
+    }
+}
+
+void UdpSocket::HandleHandshake(const Endpoint& sender,
+    std::span<const std::uint8_t> datagram)
+{
+    try {
+        switch (SecureHandshake::type(datagram)) {
+            case SecureHandshake::Type::Request:
+                HandleHandshakeRequest(sender, datagram);
+                break;
+            case SecureHandshake::Type::Response:
+                HandleHandshakeResponse(sender, datagram);
+                break;
+            case SecureHandshake::Type::Confirmation:
+                HandleHandshakeConfirmation(sender, datagram);
+                break;
+        }
+    } catch (const std::exception&) {
+        return;
+    }
+}
+
+void UdpSocket::HandleHandshakeRequest(const Endpoint& sender,
+    std::span<const std::uint8_t> datagram)
+{
+    if (_role != Role::Server || !_identity)
+        return;
+
+    if (_secureSessions.contains(sender))
+        return;
+
+    const auto request = SecureHandshake::decodeRequest(datagram);
+
+    _pendingSessions.erase(sender);
+    auto [it, inserted] = _pendingSessions.try_emplace(sender);
+
+    try {
+        const auto response = it->second.accept(request, *_identity);
+        const Datagram encoded = SecureHandshake::encode(response);
+
+        asio::error_code ec;
+        _socket.send_to(asio::buffer(encoded), sender, 0, ec);
+        if (ec)
+            _pendingSessions.erase(sender);
+    } catch (const std::exception&) {
+        _pendingSessions.erase(sender);
+    }
+}
+
+void UdpSocket::HandleHandshakeResponse(const Endpoint& sender,
+    std::span<const std::uint8_t> datagram)
+{
+    if (_role != Role::Client || !_trustedServerKey)
+        return;
+
+    if (!_host || sender != *_host)
+        return;
+
+    const auto it = _pendingSessions.find(sender);
+    if (it == _pendingSessions.end())
+        return;
+
+    const auto response = SecureHandshake::decodeResponse(datagram);
+    const auto request = it->second.request();
+
+    if (!it->second.complete(request, response, *_trustedServerKey))
+        return;
+
+    const Datagram confirmation =
+        SecureHandshake::encode(it->second.confirmation());
+
+    asio::error_code ec;
+    _socket.send_to(asio::buffer(confirmation), sender, 0, ec);
+    if (ec) {
+        _pendingSessions.erase(it);
+        return;
+    }
+
+    if (!_secureSessions.install(sender, it->second)) {
+        _pendingSessions.erase(it);
+        return;
+    }
+
+    _pendingSessions.erase(it);
+}
+
+void UdpSocket::HandleHandshakeConfirmation(const Endpoint& sender,
+    std::span<const std::uint8_t> datagram)
+{
+    if (_role != Role::Server)
+        return;
+
+    const auto it = _pendingSessions.find(sender);
+    if (it == _pendingSessions.end())
+        return;
+
+    const auto confirmation =
+        SecureHandshake::decodeConfirmation(datagram);
+
+    if (!it->second.confirm(confirmation))
+        return;
+
+    _secureSessions.install(sender, it->second);
+    _pendingSessions.erase(it);
+}
 
 UdpSocket::~UdpSocket() {
     if (!_socket.is_open())
@@ -61,7 +207,7 @@ void UdpSocket::Connect(const std::string& ip, std::uint16_t port) {
     }
     _host = Endpoint(address, port);
     _connected = false;
-    Send(Command::ConnectRequest, {{}});
+    StartHandshake(*_host);
 }
 
 void UdpSocket::Disconnect() {
@@ -133,11 +279,16 @@ void UdpSocket::SetMaxClients(std::size_t maxClients) {
     _maxClients = maxClients;
 }
 
+static constexpr std::size_t SECURE_OVERHEAD = 37;
+static constexpr std::size_t SECURE_MAX_PAYLOAD =
+    MAX_DATAGRAM_SIZE - HEADER_SIZE - SECURE_OVERHEAD;
+
 void UdpSocket::SendTo(const Endpoint& to, Command command, const ArgsList& args) {
     if (!_socket.is_open())
         throw Error("UdpSocket: socket is not open.");
     const std::uint32_t messageId = _nextMessageId++;
-    std::vector<Datagram> datagrams = EncodeMessage(command, args, _role, messageId);
+    std::vector<Datagram> datagrams =
+        EncodeMessage(command, args, _role, messageId, SECURE_MAX_PAYLOAD);
     for (const Datagram& datagram : datagrams) {
         const asio::error_code ec = Transmit(to, datagram);
         if (ec)
@@ -187,6 +338,8 @@ void UdpSocket::Close() {
     _clients.clear();
     _announced.clear();
     _channels.clear();
+    _pendingSessions.clear();
+    _secureSessions.clear();
 }
 
 void UdpSocket::StartReceive() {
@@ -201,12 +354,37 @@ void UdpSocket::OnReceive(const asio::error_code& ec, std::size_t size) {
         StartReceive();
         return;
     }
-    if (ec == asio::error::message_size)
-        size = _buffer.size();
+    if (ec == asio::error::message_size) {
+        StartReceive();
+        return;
+    }
 
-    const DecodeResult result = DecodePacket(std::span<const std::uint8_t>(_buffer.data(), size), _role);
     const Endpoint sender = _sender;
+    const std::vector<std::uint8_t> received(
+        _buffer.begin(), _buffer.begin() + size);
+
     StartReceive();
+
+    const std::span<const std::uint8_t> datagram(received);
+
+    if (datagram.size() >= 2 &&
+        datagram[0] == 0x53 && datagram[1] == 0x48) {
+        HandleHandshake(sender, datagram);
+        return;
+    }
+
+    if (!_secureSessions.contains(sender))
+        return;
+
+    std::vector<std::uint8_t> decrypted;
+    try {
+        decrypted = _secureSessions.decode(sender, datagram);
+    } catch (const std::exception&) {
+        return;
+    }
+
+    const DecodeResult result = DecodePacket(
+        std::span<const std::uint8_t>(decrypted), _role);
 
     if (result.ok)
         Handle(sender, result);
@@ -288,8 +466,13 @@ void UdpSocket::OnResend(const Endpoint& sender, const ArgsList& requests) {
 }
 
 asio::error_code UdpSocket::Transmit(const Endpoint& to, const Datagram& datagram) {
+    if (!_secureSessions.contains(to))
+        throw Error("UdpSocket: no secure session for this endpoint.");
+
+    const std::vector<std::uint8_t> encrypted = _secureSessions.encode(to, datagram);
+
     asio::error_code ec;
-    _socket.send_to(asio::buffer(datagram), to, 0, ec);
+    _socket.send_to(asio::buffer(encrypted), to, 0, ec);
     return ec;
 }
 
