@@ -39,7 +39,9 @@ struct DecodeResult {
     std::uint8_t rejectedCommand = 0;
 };
 
-std::vector<Datagram> EncodeMessage(Command command, const ArgsList& args, Role role, std::uint32_t messageId);
+std::vector<Datagram> EncodeMessage(Command command, const ArgsList& args,
+    Role role, std::uint32_t messageId,
+    std::size_t maxPayloadSize = MAX_PAYLOAD_SIZE);
 DecodeResult DecodePacket(std::span<const std::uint8_t> datagram, Role role);
 
 }

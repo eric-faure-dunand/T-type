@@ -37,6 +37,7 @@ enum class Command : std::uint8_t {
     PlayerCreation = 0x25,
     Ack = 0x30,
     Resend = 0x31,
+    HandshakeReady = 0x32,
     Error = 0x84,
 };
 

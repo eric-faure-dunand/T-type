@@ -39,6 +39,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::PlayerCreation, {Direction::ServerToClient, {ArgType::U32, ArgType::I32, ArgType::I32, ArgType::U8}, false, false, true}},
     {Command::Ack, {Direction::Both, {ArgType::U32}, true}},
     {Command::Resend, {Direction::Both, {ArgType::U32, ArgType::U32}, true}},
+    // Internal secure handshake confirmation
+    {Command::HandshakeReady, {Direction::ServerToClient, {}, false, false, false}},
     // error_code, rejected_command
     {Command::Error, {Direction::Both, {ArgType::U8, ArgType::U8}}},
 };

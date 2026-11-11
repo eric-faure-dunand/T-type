@@ -46,6 +46,7 @@ void UdpSocket::StartHandshake(const Endpoint& server)
         throw Error("UdpSocket: trusted server key is not configured.");
 
     _pendingSessions.erase(server);
+    _channels.erase(server);
     _secureSessions.remove(server);
 
     auto [it, inserted] = _pendingSessions.try_emplace(server);
@@ -73,9 +74,11 @@ void UdpSocket::HandleHandshake(const Endpoint& sender,
             case SecureHandshake::Type::Confirmation:
                 HandleHandshakeConfirmation(sender, datagram);
                 break;
+            case SecureHandshake::Type::Ready:
+                break;
         }
-    } catch (const std::exception&) {
-        return;
+    } catch (const std::exception& error) {
+        std::cerr << "[Handshake] Error: " << error.what() << '\n';
     }
 }
 
@@ -85,13 +88,15 @@ void UdpSocket::HandleHandshakeRequest(const Endpoint& sender,
     if (_role != Role::Server || !_identity)
         return;
 
-    if (_secureSessions.contains(sender))
-        return;
-
     const auto request = SecureHandshake::decodeRequest(datagram);
 
-    _pendingSessions.erase(sender);
+    ClearExpiredHandshakes();
+
     auto [it, inserted] = _pendingSessions.try_emplace(sender);
+    if (!inserted)
+        return;
+
+    _pendingSince[sender] = std::chrono::steady_clock::now();
 
     try {
         const auto response = it->second.accept(request, *_identity);
@@ -135,6 +140,14 @@ void UdpSocket::HandleHandshakeResponse(const Endpoint& sender,
         return;
     }
 
+    if (!it->second.ready()) {
+        _pendingSessions.erase(it);
+        return;
+    }
+
+    _secureSessions.remove(sender);
+    _channels.erase(sender);
+
     if (!_secureSessions.install(sender, it->second)) {
         _pendingSessions.erase(it);
         return;
@@ -159,8 +172,23 @@ void UdpSocket::HandleHandshakeConfirmation(const Endpoint& sender,
     if (!it->second.confirm(confirmation))
         return;
 
-    _secureSessions.install(sender, it->second);
+    if (!it->second.ready())
+        return;
+
+    _secureSessions.remove(sender);
+    _channels.erase(sender);
+
+    if (!_secureSessions.install(sender, it->second))
+        return;
+
     _pendingSessions.erase(it);
+    _pendingSince.erase(sender);
+    SendHandshakeReady(sender);
+}
+
+void UdpSocket::SendHandshakeReady(const Endpoint& client)
+{
+    SendTo(client, Command::HandshakeReady, {{}});
 }
 
 UdpSocket::~UdpSocket() {
@@ -197,15 +225,17 @@ void UdpSocket::Bind(std::uint16_t port) {
 void UdpSocket::Connect(const std::string& ip, std::uint16_t port) {
     if (_role != Role::Client)
         throw Error("UdpSocket: only a client can connect to a server.");
+
     asio::error_code ec;
     const asio::ip::address address = asio::ip::make_address(ip, ec);
     if (ec || !address.is_v4())
         throw Error("UdpSocket: invalid ip address '" + ip + "'.");
-    if (!_socket.is_open()) {
+
+    if (!_socket.is_open())
         Open(Endpoint(asio::ip::udp::v4(), 0));
-        _server = Endpoint(address, port);
-    }
-    _host = Endpoint(address, port);
+
+    _server = Endpoint(address, port);
+    _host = _server;
     _connected = false;
     StartHandshake(*_host);
 }
@@ -315,7 +345,9 @@ void UdpSocket::SetFallback(FallbackHandler fallback) {
 std::size_t UdpSocket::Poll() {
     if (_context.stopped())
         _context.restart();
+
     const std::size_t handled = _context.poll();
+    ClearExpiredHandshakes();
     Flush();
     return handled;
 }
@@ -339,6 +371,7 @@ void UdpSocket::Close() {
     _announced.clear();
     _channels.clear();
     _pendingSessions.clear();
+    _pendingSince.clear();
     _secureSessions.clear();
 }
 
@@ -367,6 +400,9 @@ void UdpSocket::OnReceive(const asio::error_code& ec, std::size_t size) {
 
     const std::span<const std::uint8_t> datagram(received);
 
+    std::cerr << "[UDP] Received " << datagram.size()
+              << " bytes from " << sender << '\n';
+
     if (datagram.size() >= 2 &&
         datagram[0] == 0x53 && datagram[1] == 0x48) {
         HandleHandshake(sender, datagram);
@@ -379,12 +415,26 @@ void UdpSocket::OnReceive(const asio::error_code& ec, std::size_t size) {
     std::vector<std::uint8_t> decrypted;
     try {
         decrypted = _secureSessions.decode(sender, datagram);
-    } catch (const std::exception&) {
+    } catch (const std::exception& error) {
+        std::cerr << "[Secure UDP] Decode error: "
+                  << error.what() << '\n';
         return;
     }
 
     const DecodeResult result = DecodePacket(
         std::span<const std::uint8_t>(decrypted), _role);
+
+    std::cerr << "[Secure UDP] Packet: "
+              << "valid=" << result.ok
+              << " command=" << static_cast<int>(result.command)
+              << " error=" << static_cast<int>(result.error)
+              << '\n';
+
+    if (result.ok && result.command == Command::HandshakeReady) {
+        if (_role == Role::Client && _host && sender == *_host)
+            SendTo(sender, Command::ConnectRequest, {{}});
+        return;
+    }
 
     if (result.ok)
         Handle(sender, result);
@@ -574,6 +624,27 @@ void UdpSocket::ReplyError(const Endpoint& to, NetError error, std::uint8_t reje
         || rejectedCommand == Code(Command::Error))
         return;
     Reply(to, Command::Error, {{static_cast<std::uint8_t>(error), rejectedCommand}});
+}
+
+bool UdpSocket::HasSecureSession(const Endpoint& endpoint) const
+{
+    return _secureSessions.contains(endpoint);
+}
+
+void UdpSocket::ClearExpiredHandshakes()
+{
+    const auto now = std::chrono::steady_clock::now();
+    const auto timeout = std::chrono::seconds(5);
+
+    for (auto it = _pendingSince.begin(); it != _pendingSince.end();) {
+        if (now - it->second < timeout) {
+            ++it;
+            continue;
+        }
+
+        _pendingSessions.erase(it->first);
+        it = _pendingSince.erase(it);
+    }
 }
 
 }

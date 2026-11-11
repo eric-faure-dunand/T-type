@@ -419,3 +419,19 @@ target_link_libraries(secure_session_manager_tests PRIVATE
 )
 
 gtest_discover_tests(secure_session_manager_tests)
+
+
+add_executable(secure_handshake_tests
+    project/tests/shared/Network/test_secure_handshake.cpp
+    project/src/shared/Network/SecureHandshake.cpp
+)
+
+target_include_directories(secure_handshake_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/project/include/shared
+)
+
+target_link_libraries(secure_handshake_tests PRIVATE
+    GTest::gtest_main
+)
+
+gtest_discover_tests(secure_handshake_tests)

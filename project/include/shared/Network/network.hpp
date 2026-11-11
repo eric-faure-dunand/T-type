@@ -12,6 +12,8 @@
     #include <optional>
     #include <string>
     #include <vector>
+    #include <iostream>
+    #include <chrono>
 
     #include <asio/io_context.hpp>
     #include <asio/ip/udp.hpp>
@@ -59,6 +61,7 @@ class UdpSocket {
     std::unique_ptr<ServerIdentity> _identity;
     std::optional<ServerIdentity::PublicKey> _trustedServerKey;
     std::map<Endpoint, SecureSession> _pendingSessions;
+    std::map<Endpoint, std::chrono::steady_clock::time_point> _pendingSince;
     SecureSessionManager _secureSessions;
 
     void Open(const Endpoint& local);
@@ -88,6 +91,10 @@ class UdpSocket {
     bool Dispatch(const Endpoint& sender, Command command, const ArgsList& args) const;
     void Reply(const Endpoint& to, Command command, const ArgsList& args);
     void ReplyError(const Endpoint& to, NetError error, std::uint8_t rejectedCommand);
+
+    void SendHandshakeReady(const Endpoint& client);
+
+    void ClearExpiredHandshakes();
 
 public:
     explicit UdpSocket(Role role, std::size_t maxClients = 0, bool room = false);
@@ -125,6 +132,8 @@ public:
 
     void SetServerIdentity(const std::string& privateKeyPath);
     void SetTrustedServerKey(const ServerIdentity::PublicKey& publicKey);
+
+    bool HasSecureSession(const Endpoint& endpoint) const;
 };
 
 }

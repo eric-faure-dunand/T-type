@@ -19,6 +19,7 @@
     #include "Registry.hpp"
     #include "Gameplay.hpp"
     #include "Spawner.hpp"
+    #include "Encryption/SecurityConfig.hpp"
 
 namespace r_type {
 

@@ -7,3 +7,4 @@ r-type_client
 /compressor_tests
 /crypter_tests
 /secure_pipeline_tests
+.local/

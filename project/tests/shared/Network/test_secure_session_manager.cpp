@@ -181,9 +181,9 @@ TEST_F(SecureSessionManagerTest, ClientToServerRoundTrip) {
     ASSERT_TRUE(clientManager.install(serverEndpoint, client));
     ASSERT_TRUE(serverManager.install(clientEndpoint, server));
 
-    const auto original = EncodePacket(Command::PlayerInput,
+    const auto original = EncodeMessage(Command::PlayerInput,
         {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client);
+        r_type::Role::Client, 1).front();
 
     const auto encrypted = clientManager.encode(serverEndpoint, original);
     const auto decrypted = serverManager.decode(clientEndpoint, encrypted);
@@ -205,8 +205,8 @@ TEST_F(SecureSessionManagerTest, ServerToClientRoundTrip) {
     ASSERT_TRUE(clientManager.install(serverEndpoint, client));
     ASSERT_TRUE(serverManager.install(clientEndpoint, server));
 
-    const auto original = EncodePacket(Command::ConnectAccept,
-        {{}}, r_type::Role::Server);
+    const auto original = EncodeMessage(Command::ConnectAccept,
+        {{}}, r_type::Role::Server, 1).front();
 
     const auto encrypted = serverManager.encode(clientEndpoint, original);
 
@@ -231,9 +231,9 @@ TEST_F(SecureSessionManagerTest, RejectPacketFromAnotherSession) {
     ASSERT_TRUE(serverManager.install(firstEndpoint, firstServer));
     ASSERT_TRUE(serverManager.install(secondEndpoint, secondServer));
 
-    const auto original = EncodePacket(Command::PlayerInput,
+    const auto original = EncodeMessage(Command::PlayerInput,
         {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client);
+        r_type::Role::Client, 1).front();
 
     const auto encrypted = clientManager.encode(serverEndpoint, original);
 
@@ -255,9 +255,9 @@ TEST_F(SecureSessionManagerTest, RejectReplayedPacket) {
     ASSERT_TRUE(clientManager.install(serverEndpoint, client));
     ASSERT_TRUE(serverManager.install(clientEndpoint, server));
 
-    const auto original = EncodePacket(Command::PlayerInput,
+    const auto original = EncodeMessage(Command::PlayerInput,
         {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client);
+        r_type::Role::Client, 1).front();
 
     const auto encrypted = clientManager.encode(serverEndpoint, original);
 

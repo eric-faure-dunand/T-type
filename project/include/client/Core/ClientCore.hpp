@@ -21,6 +21,7 @@
     #include "Display.hpp"
     #include "World.hpp"
     #include "sig.hpp"
+    #include "Encryption/SecurityConfig.hpp"
 
 namespace r_type::client {
 

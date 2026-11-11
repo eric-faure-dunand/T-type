@@ -65,7 +65,7 @@ std::vector<std::uint8_t> SecureTransport::encode(
 std::vector<std::uint8_t> SecureTransport::decode(
     std::span<const std::uint8_t> datagram)
 {
-    if (datagram.size() < SEQUENCE_SIZE + 13
+    if (datagram.size() < SEQUENCE_SIZE + HEADER_SIZE
         || datagram.size() > MAX_PACKET_SIZE)
         throw std::length_error("Invalid secure transport packet size");
 

@@ -25,9 +25,9 @@ KeyDerivation::SessionKeys testKeys()
 
 std::vector<std::uint8_t> testPacket()
 {
-    return EncodePacket(Command::PlayerInput,
+    return EncodeMessage(Command::PlayerInput,
         {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client);
+        Role::Client, 1).front();
 }
 
 }
@@ -162,4 +162,12 @@ TEST(SecureTransportTest, GenerateDifferentSequences)
 
     EXPECT_NE(std::vector<std::uint8_t>(first.begin(), first.begin() + 8),
         std::vector<std::uint8_t>(second.begin(), second.begin() + 8));
+}
+
+TEST(SecureTransportTest, RejectOversizedPlainDatagram)
+{
+    SecureTransport client(testKeys(), SecureTransport::Role::Client);
+    std::vector<std::uint8_t> packet(1200, 0);
+
+    EXPECT_THROW(client.encode(packet), std::length_error);
 }

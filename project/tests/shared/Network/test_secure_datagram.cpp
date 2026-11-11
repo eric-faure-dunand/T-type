@@ -20,13 +20,19 @@ r_type::Crypter::Key testKey() {
     return key;
 }
 
-TEST(SecureDatagramTest, RoundTripPacket) {
-    r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
+r_type::Datagram createPlayerInput() {
+    const auto datagrams = r_type::EncodeMessage(
         r_type::Command::PlayerInput,
         {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
+        r_type::Role::Client,
+        1
     );
+    return datagrams.front();
+}
+
+TEST(SecureDatagramTest, RoundTripPacket) {
+    r_type::SecureDatagram secure(testKey());
+    const auto original = createPlayerInput();
 
     const auto encrypted = secure.encode(original);
     const auto restored = secure.decode(encrypted);
@@ -40,11 +46,7 @@ TEST(SecureDatagramTest, RoundTripPacket) {
 
 TEST(SecureDatagramTest, RejectModifiedHeader) {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
 
     auto encrypted = secure.encode(original);
     encrypted[3] ^= 0x01;
@@ -54,11 +56,7 @@ TEST(SecureDatagramTest, RejectModifiedHeader) {
 
 TEST(SecureDatagramTest, RejectModifiedPayload) {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
 
     auto encrypted = secure.encode(original);
     encrypted.back() ^= 0x01;
@@ -68,11 +66,7 @@ TEST(SecureDatagramTest, RejectModifiedPayload) {
 
 TEST(SecureDatagramTest, RejectPlainPacket) {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
 
     EXPECT_THROW(secure.decode(original), std::runtime_error);
 }
@@ -83,11 +77,7 @@ TEST(SecureDatagramTest, RejectWrongKey) {
     wrongKey[0] ^= 0xFF;
     r_type::SecureDatagram receiver(wrongKey);
 
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
 
     EXPECT_THROW(receiver.decode(sender.encode(original)), std::runtime_error);
 }
@@ -96,11 +86,12 @@ TEST(SecureDatagramTest, RejectWrongKey) {
 
 TEST(SecureDatagramTest, PreserveErrorCommand) {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
+    const auto original = r_type::EncodeMessage(
         r_type::Command::Error,
         {{std::uint8_t{1}, std::uint8_t{2}}},
-        r_type::Role::Server
-    );
+        r_type::Role::Server,
+        1
+    ).front();
 
     const auto encrypted = secure.encode(original);
     const auto restored = secure.decode(encrypted);
@@ -116,11 +107,7 @@ TEST(SecureDatagramTest, PreserveErrorCommand) {
 TEST(SecureDatagramTest, RoundTripWithExtraAAD)
 {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
     const std::array<std::uint8_t, 8> aad = {0, 0, 0, 0, 0, 0, 0, 1};
 
     const auto encrypted = secure.encode(original, aad);
@@ -132,11 +119,7 @@ TEST(SecureDatagramTest, RoundTripWithExtraAAD)
 TEST(SecureDatagramTest, RejectWrongExtraAAD)
 {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
     const std::array<std::uint8_t, 8> aad = {0, 0, 0, 0, 0, 0, 0, 1};
     const std::array<std::uint8_t, 8> wrongAAD = {0, 0, 0, 0, 0, 0, 0, 2};
 
@@ -148,11 +131,7 @@ TEST(SecureDatagramTest, RejectWrongExtraAAD)
 TEST(SecureDatagramTest, RejectMissingExtraAAD)
 {
     r_type::SecureDatagram secure(testKey());
-    const auto original = r_type::EncodePacket(
-        r_type::Command::PlayerInput,
-        {{std::uint32_t{42}, std::uint8_t{1}, std::uint8_t{1}}},
-        r_type::Role::Client
-    );
+    const auto original = createPlayerInput();
     const std::array<std::uint8_t, 8> aad = {0, 0, 0, 0, 0, 0, 0, 1};
 
     const auto encrypted = secure.encode(original, aad);

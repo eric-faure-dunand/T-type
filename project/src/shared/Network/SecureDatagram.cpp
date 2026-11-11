@@ -12,7 +12,7 @@
 namespace r_type {
 
 namespace {
-constexpr std::size_t sizeOffset = 11;
+constexpr std::size_t sizeOffset = HEADER_SIZE - sizeof(std::uint16_t);
 
 std::string toString(std::span<const std::uint8_t> data) {
     return std::string(data.begin(), data.end());
