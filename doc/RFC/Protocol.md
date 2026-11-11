@@ -9,16 +9,16 @@ for the list of synchronized game data and update frequencies.
 
 ## 1. Common encoding
 
-Every UDP datagram has the 13-byte header documented in [Readme.md](Readme.md). All integers are unsigned and big-endian unless stated otherwise. Signed coordinates are encoded as **signed 32-bit two's-complement integers** in big-endian order. No compiler-native structs, padding, pointers, or C++ object layouts are transmitted.
+Every UDP datagram has the 17-byte header documented in [Readme.md](Readme.md). All integers are unsigned and big-endian unless stated otherwise. Signed coordinates are encoded as **signed 32-bit two's-complement integers** in big-endian order. No compiler-native structs, padding, pointers, or C++ object layouts are transmitted.
 
 Part 1 constraints:
 
 - `Magic = 0x5254`.
-- `13 <= datagram_size <= 1200`.
-- `Size = datagram_size - 13`, maximum 1187.
-- `Sequence number = 1` and `Sequence length = 1` because one complete message is carried per datagram (fragment 1 of 1).
-- `Sequence number` is the 1-based fragment index and `Sequence length` the total fragment count of the logical message. Neither is a datagram counter nor an acknowledgement: the header carries no ordering information.
-- Each payload carries exactly **one record** laid out by the command's fixed schema in §3, except `ROOM_LIST`, whose payload is a list of 0 to N records of the same schema. Carrying a list for other commands is future work.
+- `17 <= datagram_size <= 1200`.
+- `Size = datagram_size - 17`, maximum 1183.
+- `Message id` identifies the logical message. It is chosen by the sender and shared by all the fragments of the message (§3.2).
+- `Sequence number` is the 1-based fragment index and `Sequence length` the total fragment count of the logical message: `1 <= Sequence number <= Sequence length <= 32`. A message that is not fragmented is fragment 1 of 1. A `Sequence length` above 1 is only valid for a list command (see below). Neither field is a datagram counter nor an acknowledgement: the header carries no ordering information.
+- Each payload carries exactly **one record** laid out by the command's fixed schema in §3, except the list commands `ROOM_LIST`, `ENTITY_UPDATE`, `ENTITY_SPAWN`, `ENTITY_DESTROY`, `ACK` and `RESEND`, whose payload is a list of 0 to N records of the same schema. A list too long for one datagram is fragmented (§3.2).
 - A client-to-server packet is accepted only if its command is permitted in that direction and its connection is authorized for the referenced entity.
 
 **Coordinates:** `x` and `y` are integer world coordinates in game units (the initial implementation may use pixel-equivalent units). Position is absolute, not a relative delta. The world origin and coordinate bounds are determined by the gameplay implementation and must be validated server-side.
@@ -27,30 +27,34 @@ Part 1 constraints:
 
 ## 2. Command registry
 
-| Code | Command | Direction | Handled by | Size | Purpose |
-|---|---|---|---|---:|---|
-| `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | Ask to connect |
-| `0x02` | `CONNECT_ACCEPT` | Server → Client | Server, Room | 0 | Accept the connection |
-| `0x03` | `DISCONNECT` | Both | Server | 0 | End the connection to the server |
-| `0x04` | `CREATE_ROOM` | Client → Server | Server | 0 | Create a room and enter it |
-| `0x05` | `JOIN_ROOM` | Client → Server | Server | 4 | Ask to enter a room |
-| `0x06` | `ROOM_JOINED` | Server → Client | Server | 4 | Give the port of the room to connect to |
-| `0x07` | `LIST_ROOMS` | Client → Server | Server | 0 | Ask for the rooms with free slots |
-| `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | List the rooms with free slots |
-| `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | Leave the room, giving the player entity |
-| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | Submit input press/release events for a controlled entity |
-| `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | Begin an initial state transfer |
-| `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 | Publish authoritative entity position |
-| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 | Create or refresh an entity representation |
-| `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
-| `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
-| `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | Tell a client which entity it controls |
-| `0x30` | `ACK` | Reserved | — | — | Future reliable delivery; not used in Part 1 |
-| `0x84` | `ERROR` | Both | Server, Room | 2 | Report a rejected datagram to its sender |
+| Code | Command | Direction | Handled by | Size | Reliable | Purpose |
+|---|---|---|---|---:|:---:|---|
+| `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | yes | Ask to connect |
+| `0x02` | `CONNECT_ACCEPT` | Server → Client | Server, Room | 0 | yes | Accept the connection |
+| `0x03` | `DISCONNECT` | Both | Server | 0 | yes | End the connection to the server |
+| `0x04` | `CREATE_ROOM` | Client → Server | Server | 0 | yes | Create a room and enter it |
+| `0x05` | `JOIN_ROOM` | Client → Server | Server | 4 | yes | Ask to enter a room |
+| `0x06` | `ROOM_JOINED` | Server → Client | Server | 4 | yes | Give the port of the room to connect to |
+| `0x07` | `LIST_ROOMS` | Client → Server | Server | 0 | yes | Ask for the rooms with free slots |
+| `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | yes | List the rooms with free slots |
+| `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | yes | Leave the room, giving the player entity |
+| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | no | Submit input press/release events for a controlled entity |
+| `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | yes | Ask to play a given character |
+| `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | yes | Begin an initial state transfer |
+| `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 × N | no | Publish the authoritative positions of the entities |
+| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 × N | yes | Create or refresh entity representations |
+| `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 × N | yes | Remove entities |
+| `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | yes | End an initial state transfer |
+| `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | yes | Tell a client which entity it controls |
+| `0x30` | `ACK` | Both | Network layer | 4 × N | no | Acknowledge reliable messages |
+| `0x31` | `RESEND` | Both | Network layer | 8 × N | no | Ask for the missing fragments of a reliable message |
+| `0x84` | `ERROR` | Both | Server, Room | 2 | no | Report a rejected datagram to its sender |
 
-In the *Direction* column, *Server* means the host side: the server socket or a room socket. The *Handled by* column says where the command is meant to be handled (§2.1). `CONNECT_REQUEST`, `CONNECT_ACCEPT` and `DISCONNECT` are handled by the network layer itself, except that a room ignores `DISCONNECT` (§2.1). Any other valid command for which the receiver has no handler is answered with `ERROR COMMAND_NOT_HANDLED`, except `ERROR`, which is never answered.
+In the *Direction* column, *Server* means the host side: the server socket or a room socket. The *Handled by* column says where the command is meant to be handled (§2.1). `CONNECT_REQUEST`, `CONNECT_ACCEPT` and `DISCONNECT` are handled by the network layer itself, except that a room ignores `DISCONNECT` (§2.1). `ACK` and `RESEND` are consumed by the network layer (§3.2): they are never handed to the game and never answered. Any other valid command for which the receiver has no handler is answered with `ERROR COMMAND_NOT_HANDLED`, except `ERROR`, which is never answered.
 
-Unknown and reserved command codes are rejected. All payload layouts below are exact: additional bytes are invalid.
+The *Reliable* column tells whether the command is acknowledged and retransmitted (§3.2). The flag belongs to the command, not to the datagram: sender and receiver both read it from this registry. Every command is reliable except five. `PLAYER_INPUT` is repeated by the client (§3) and `ENTITY_UPDATE` carries an absolute position that the next update corrects, so acknowledging them would only cost bandwidth. `ACK` and `RESEND` are not acknowledged, otherwise acknowledgements would never end, and `ERROR` is never answered (§5).
+
+Unknown and reserved command codes are rejected. No command is reserved at the moment. All payload layouts below are exact: additional bytes are invalid.
 
 ## 2.1. Server and room sockets
 
@@ -74,7 +78,7 @@ Offsets in this section are relative to the **start of the payload** (immediatel
 
 ### `CONNECT_REQUEST` (`0x01`)
 
-Empty payload. The client asks the server, or a room (§2.1), whether it may connect. The receiver adds the sender endpoint to its list of connected clients and answers `CONNECT_ACCEPT`. A request from an endpoint that is already connected is answered again (e.g. when the previous `CONNECT_ACCEPT` was lost) without adding it twice. When its list is full, the receiver answers `ERROR FULL`. A room also answers `ERROR NOT_CONNECTED` to an endpoint the server did not announce. A UDP endpoint is not proof of identity; spoofing protection and authentication are future work.
+Empty payload. The client asks the server, or a room (§2.1), whether it may connect. The receiver adds the sender endpoint to its list of connected clients and answers `CONNECT_ACCEPT`. A request from an endpoint that is already connected is answered again (e.g. when the previous `CONNECT_ACCEPT` was lost) without adding it twice. A retransmission of the same message (same `Message id`, §3.2) is only acknowledged. When its list is full, the receiver answers `ERROR FULL`. A room also answers `ERROR NOT_CONNECTED` to an endpoint the server did not announce. A UDP endpoint is not proof of identity; spoofing protection and authentication are future work.
 
 ### `CONNECT_ACCEPT` (`0x02`)
 
@@ -82,7 +86,7 @@ Empty payload. The server or the room accepts the connection. The client only ta
 
 ### `DISCONNECT` (`0x03`)
 
-Empty payload. Never answered.
+Empty payload. Never answered, but acknowledged like any reliable message (§3.2).
 
 - Sent by a client to the server: ends the connection. The server removes the sender from its list of connected clients and from its room. A `DISCONNECT` from an endpoint that is not connected is ignored.
 - Sent by a client to a room: ignored. A client leaves a room with `DISCONNECT_ROOM`.
@@ -114,7 +118,7 @@ Empty payload. The server answers `ROOM_LIST`.
 
 ### `ROOM_LIST` (`0x08`)
 
-A list of 0 to 237 records, one per room with at least one free slot. `Size` must be a multiple of 5; an empty payload means that no room is available. This is the only command whose payload carries more than one record in Part 1.
+A list of records, one per room with at least one free slot. `Size` must be a multiple of 5; an empty payload means that no room is available. A datagram holds at most 236 records; a longer list is fragmented (§3.2), up to 32 fragments.
 
 | Offset in record | Field | Type | Description |
 |---:|---|---|---|
@@ -143,15 +147,26 @@ Because UDP can lose packets, the client repeats the `Pressed` event of every he
 
 The server checks that the sender is allowed to control `entity_id`. Actions are requests, never a client-provided resulting position. Input rate limiting and replay handling belong in the server implementation.
 
+### `CHOOSE_CHARACTER` (`0x11`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | Player entity controlled by the client in this room |
+| 4 | `character` | uint8 | `0x00` Ana, `0x01` Soha, `0x02` Hilal, `0x03` Eric; others reserved |
+
+Sent by a client after `PLAYER_CREATION`, when the character it picked differs from the one the room gave it. Never answered directly. If no other player of the room plays this character, the room gives it to the sender and sends `ENTITY_SPAWN` for the player entity to every client, with the new character in `color`. Otherwise the request is ignored and the player keeps its character. The room checks that the sender controls `entity_id`. The client sends it once and never repeats it, so the command is reliable (§3.2): a lost datagram is retransmitted by the network layer.
+
 ### `INITIAL_STATE_BEGIN` (`0x20`)
 
 | Offset | Field | Type | Description |
 |---:|---|---|---|
-| 0 | `entity_count` | uint32 | Number of `ENTITY_SPAWN` messages expected in this transfer |
+| 0 | `entity_count` | uint32 | Number of entities expected in this transfer: the number of records of its `ENTITY_SPAWN` list |
 
-On receipt, the client starts a fresh initial-state collection. The server sends one `ENTITY_SPAWN` for each existing entity, then `INITIAL_STATE_END`. Because UDP can lose messages, a client **must not** treat a partial transfer as a complete snapshot. If the count is not reached or the end marker is missing, the client should request a new connection/state transfer after a timeout; timeout values are implementation policy.
+On receipt, the client starts a fresh initial-state collection. The server sends all the existing entities in one `ENTITY_SPAWN` list, then `INITIAL_STATE_END`. Because UDP can lose messages, a client **must not** treat a partial transfer as a complete snapshot. If the count is not reached or the end marker is missing, the client should request a new connection/state transfer after a timeout; timeout values are implementation policy.
 
 ### `ENTITY_UPDATE` (`0x21`)
+
+A list of records, one per entity. `Size` must be a multiple of 12. A datagram holds at most 98 records, and a longer list is fragmented (§3.2). The fragments of this list are not reassembled: each datagram is given to the game as a list of its own, so a lost fragment only loses its own records. The server builds the list once for all the entities and sends it to every client.
 
 | Offset | Field | Type | Description |
 |---:|---|---|---|
@@ -159,9 +174,11 @@ On receipt, the client starts a fresh initial-state collection. The server sends
 | 4 | `x` | int32 | Authoritative absolute X coordinate |
 | 8 | `y` | int32 | Authoritative absolute Y coordinate |
 
-An update for an unknown entity must not implicitly create it. The client may defer or ignore it pending a spawn or state resynchronization. Part 1 carries no ordering information (§1): a delayed update may overwrite a more recent position. Positions are absolute and sent at a target 20 Hz, so the next update corrects it.
+An update for an unknown entity must not implicitly create it. The client may defer or ignore it pending a spawn or state resynchronization. The header carries no ordering information (§1): a delayed update may overwrite a more recent position. Positions are absolute and sent at 20 Hz (one list every 50 ms, `ROOM_UPDATE_RATE` in `room.hpp`), so the next update corrects it.
 
 ### `ENTITY_SPAWN` (`0x22`)
+
+A list of records, one per entity. `Size` must be a multiple of 14. A datagram holds at most 84 records. The command is reliable, so a list longer than one datagram is reassembled and given to the game at once (§3.2). The server groups the entities created during the same tick in one message per client, and does not send an empty list.
 
 | Offset | Field | Type | Description |
 |---:|---|---|---|
@@ -169,11 +186,13 @@ An update for an unknown entity must not implicitly create it. The client may de
 | 4 | `entity_kind` | uint8 | `0x01` player ship, `0x02` enemy, `0x03` projectile; others reserved |
 | 5 | `x` | int32 | Initial authoritative X coordinate |
 | 9 | `y` | int32 | Initial authoritative Y coordinate |
-| 13 | `color` | uint8 | Player colour index, `0` to `3`, chosen by the server and unique among the players of the room; `0` and ignored for non-player entities |
+| 13 | `color` | uint8 | Player character, `0` to `3` (see `CHOOSE_CHARACTER`), unique among the players of the room; it also gives the player colour. `0` and ignored for non-player entities |
 
 `entity_kind` is a rendering/spawning hint, not a C++ class identity. The `entity_kind` values are the approved Part 1 wire-level baseline from issue #9; adding more kinds or ECS fields requires a documented protocol revision. A duplicate spawn for the same live entity must not create a second entity.
 
 ### `ENTITY_DESTROY` (`0x23`)
+
+A list of records, one per entity. `Size` must be a multiple of 4. A datagram holds at most 295 records. The command is reliable and reassembled like `ENTITY_SPAWN`. The server groups the entities destroyed during the same tick in one message per client.
 
 | Offset | Field | Type | Description |
 |---:|---|---|---|
@@ -187,7 +206,7 @@ Unknown IDs may be ignored. The server **must not reuse an entity ID during a ga
 |---:|---|---|---|
 | 0 | `entity_count` | uint32 | Must match the begin marker and the number of collected unique entity IDs |
 
-A matching count alone does **not** prove the transfer is complete. The rules in §3.1 apply. Part 1 does not implement reliable snapshot transfer; explicit transfer IDs, retransmission of individual fragments, and robust recovery are Part 2 candidates.
+A matching count alone does **not** prove the transfer is complete. The rules in §3.1 apply. The messages of the transfer are reliable (§3.2), but the transfer itself has no transfer ID: a message abandoned by the network layer after its last retransmission still requires the client to retry.
 
 ### `PLAYER_CREATION` (`0x25`)
 
@@ -196,9 +215,30 @@ A matching count alone does **not** prove the transfer is complete. The rules in
 | 0 | `entity_id` | uint32 | Player entity controlled by this client |
 | 4 | `x` | int32 | Initial authoritative X coordinate |
 | 8 | `y` | int32 | Initial authoritative Y coordinate |
-| 12 | `color` | uint8 | Player colour index, `0` to `3` |
+| 12 | `color` | uint8 | Player character, `0` to `3`: the first one free in the room (see `CHOOSE_CHARACTER`) |
 
 Sent by the room to one client only, right after it accepted its `CONNECT_REQUEST`. It is the only way for a client to learn the `entity_id` to put in `PLAYER_INPUT` and `DISCONNECT_ROOM`; until it is received, the client sends no input. The other clients learn about this player through a regular `ENTITY_SPAWN`. A duplicate `PLAYER_CREATION` for the same entity must not create a second entity.
+
+### `ACK` (`0x30`)
+
+A list of records. `Size` must be a multiple of 4.
+
+| Offset in record | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `message_id` | uint32 | `Message id` of a reliable message that was completely received |
+
+Sent by the receiver of reliable messages (§3.2). One `ACK` carries the ids of all the messages completed since the previous one. Never answered. An id the receiver of the `ACK` is not waiting for is ignored.
+
+### `RESEND` (`0x31`)
+
+A list of records. `Size` must be a multiple of 8.
+
+| Offset in record | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `message_id` | uint32 | `Message id` of a reliable fragmented message that is incomplete |
+| 4 | `fragment_index` | uint32 | Index (`Sequence number`) of a fragment that has not been received |
+
+Sent by the receiver of a reliable fragmented message to ask for its missing fragments (§3.2). The sender answers by sending these fragments again, unchanged. Never answered. A request for a message or a fragment the sender no longer holds is ignored.
 
 ### `ERROR` (`0x84`)
 
@@ -207,17 +247,17 @@ Sent by the room to one client only, right after it accepted its `CONNECT_REQUES
 | 0 | `error_code` | uint8 | Reason of the rejection, see the table below |
 | 1 | `rejected_command` | uint8 | Command byte of the rejected datagram, `0x00` when it could not be read |
 
-Sent by either side in response to a rejected datagram, following the rules of §5. Its header uses `Sequence number = 1` and `Sequence length = 1` like any Part 1 datagram. A received `ERROR` is informational and is never answered with another `ERROR`.
+Sent by either side in response to a rejected datagram, following the rules of §5. It is never fragmented (`Sequence number = 1`, `Sequence length = 1`). A received `ERROR` is informational and is never answered with another `ERROR`.
 
 | Code | Name | Rejection |
 |---|---|---|
-| `0x01` | `DATAGRAM_TOO_SHORT` | Fewer than 13 bytes (never sent, local diagnostic only) |
+| `0x01` | `DATAGRAM_TOO_SHORT` | Fewer than 17 bytes (never sent, local diagnostic only) |
 | `0x02` | `DATAGRAM_TOO_LONG` | More than 1200 bytes |
 | `0x03` | `BAD_MAGIC` | Magic number is not `0x5254` (never sent, local diagnostic only) |
-| `0x04` | `SIZE_MISMATCH` | `Size != received_bytes - 13` |
-| `0x05` | `FRAGMENTATION_UNSUPPORTED` | `Sequence number != 1` or `Sequence length != 1` |
+| `0x04` | `SIZE_MISMATCH` | `Size != received_bytes - 17` |
+| `0x05` | `BAD_FRAGMENT` | `Sequence number` is 0 or above `Sequence length`, `Sequence length` is above 32, or `Sequence length` is above 1 for a command that is not a list |
 | `0x06` | `UNKNOWN_COMMAND` | Command code not in the registry |
-| `0x07` | `RESERVED_COMMAND` | Reserved command code (`ACK`) |
+| `0x07` | `RESERVED_COMMAND` | Reserved command code (none at the moment) |
 | `0x08` | `WRONG_DIRECTION` | Command not allowed in this direction |
 | `0x09` | `BAD_PAYLOAD_SIZE` | Payload size does not match the command schema |
 | `0x0A` | `NOT_CONNECTED` | Valid datagram sent to the server or a room by an endpoint that is not connected, or `CONNECT_REQUEST` to a room from an endpoint the server did not announce (see §5) |
@@ -231,31 +271,69 @@ Error codes `0x0C` and `0x11`–`0xFF` are reserved for future revisions.
 
 ## 3.1. Initial-state transfer and UDP reordering (Part 1)
 
-The existing header and payloads remain unchanged. To make the initial transfer checkable without adding a transfer ID, Part 1 uses the following **sender-side convention**:
+To make the initial transfer checkable without adding a transfer ID, the following **sender-side convention** is used:
 
-1. For one joining client, the server sends `INITIAL_STATE_BEGIN`, exactly `entity_count` `ENTITY_SPAWN` packets, and `INITIAL_STATE_END` **consecutively** to that client. The server must not interleave other commands for that client during the transfer.
-2. **Ordering is not guaranteed in Part 1.** The header carries no datagram counter (§1), so the client cannot detect that packets of a transfer were reordered. This will be revisited together with fragmentation.
-3. The client commits the initial state **only** after receiving the begin marker, `entity_count` valid `ENTITY_SPAWN` commands with unique entity IDs, and a valid `INITIAL_STATE_END` with the matching count. It builds the new world state off-screen and applies it atomically. Receiving the end marker before all expected spawns must not cause an early commit.
+1. For one joining client, the server sends `INITIAL_STATE_BEGIN`, one `ENTITY_SPAWN` list of exactly `entity_count` records, and `INITIAL_STATE_END` **consecutively** to that client. The server must not interleave other commands for that client during the transfer.
+2. **Ordering is not guaranteed.** `INITIAL_STATE_BEGIN`, `ENTITY_SPAWN` and `INITIAL_STATE_END` are reliable (§3.2), so a lost one is sent again, but a message that was retransmitted arrives after the ones sent later: `Message id` is an identifier, not an ordering counter (§1).
+3. The client commits the initial state **only** after receiving the begin marker, `entity_count` valid `ENTITY_SPAWN` records with unique entity IDs, and a valid `INITIAL_STATE_END` with the matching count. It builds the new world state off-screen and applies it atomically. Receiving the end marker before all expected spawns must not cause an early commit.
 4. Duplicate entity IDs cannot increase the number of collected entities.
 5. If any expected packet is missing, invalid, or timed out, or the collection exceeds implementation-defined memory/time limits, the client discards the incomplete candidate and retries the connection/state request (`CONNECT_REQUEST`). The server treats a retry from an already associated endpoint as a request for a **fresh complete initial transfer**, not as a request to create another player. Any new transfer supersedes the previous incomplete one.
 6. To keep Part 1 deterministic, the server sends the initial transfer from a consistent simulation view and does not interleave live updates into the transfer. Live events that occur during the transfer must be reconciled after the snapshot, for example by sending the latest authoritative positions and required lifecycle events after `INITIAL_STATE_END`. If the client cannot establish a consistent view, it retries synchronization rather than showing a partial world.
 
-**Limitations:** This is a minimal Part 1 convention, not guaranteed delivery. A missing begin marker may cause a timeout and retry. A missing spawn or end marker also requires a full retry. Since the wire format has no transfer ID, the client must bound buffering and ignore abandoned transfer candidates. Full reliability and more sophisticated concurrent snapshot streaming are deferred to Part 2.
+**Limitations:** Delivery is retried by the network layer (§3.2) but not guaranteed: after the last retransmission the sender gives up. A missing begin marker may then cause a timeout and retry, and a missing spawn or end marker requires a full retry. Since the wire format has no transfer ID, the client must bound buffering and ignore abandoned transfer candidates. Concurrent snapshot streaming is deferred to Part 2.
 
 ### Ordering across commands
 
-- The Part 1 header carries no ordering information (§1): duplicate, delayed, or reordered datagrams cannot be detected from the header. A delayed `ENTITY_UPDATE` may briefly overwrite a more recent position; the next absolute update corrects it.
+- The header carries no ordering information (§1): delayed or reordered datagrams cannot be detected from the header. Only the duplicates of a reliable message are detected (§3.2). A delayed `ENTITY_UPDATE` may briefly overwrite a more recent position; the next absolute update corrects it.
 - If an update arrives before its spawn, the client may buffer it briefly and apply it after the spawn, or discard it and wait for the next authoritative update.
 - During a game, entity IDs are never reused. After accepting `ENTITY_DESTROY`, a client must not resurrect the same ID due to a delayed `ENTITY_SPAWN` or `ENTITY_UPDATE`.
-- Lost spawn/destroy events are **not** recovered. An unknown entity, inconsistent lifecycle, or incomplete initial transfer requires resynchronization. Part 1 does not claim reliable delivery.
+- `ENTITY_SPAWN` and `ENTITY_DESTROY` are reliable (§3.2), so a lost one is normally recovered by retransmission, but it may arrive late and after a later event. An unknown entity, inconsistent lifecycle, or incomplete initial transfer, for example after the sender gave up, requires resynchronization.
+
+## 3.2. Fragmentation and reliable delivery
+
+Both mechanisms are handled by the network layer ([doc/Network.md](../Network.md)); the game only sends and receives commands. The delays and limits below are implementation defaults, not wire constants, except the limit of 32 fragments (§1).
+
+### Message id
+
+The sender numbers its messages with a counter that increases by one for each message sent, whatever the command (including `ACK`, `RESEND` and `ERROR`). All the fragments of a message carry the same `Message id`. The receiver identifies a message by the pair (sender endpoint, `Message id`). The counter wraps around after 2³² messages.
+
+### Fragmentation
+
+Only list commands are fragmented (§1). The records are never cut: a datagram holds `floor(1183 / record_size)` records at most, and the message is split in as many datagrams as needed, in the order of its records. Datagram `i` of `N` carries `Sequence number = i` and `Sequence length = N`. An empty list is one datagram. A message needing more than 32 datagrams cannot be sent.
+
+The receiver gives a reliable message to the game once it holds the `N` fragments, in any order of arrival: it concatenates their records by increasing `Sequence number`. A repeated fragment is ignored. Fragments of the same message that disagree on the command or on `Sequence length` are discarded with the message. At most 8 incomplete messages are kept per sender; the following ones are ignored.
+
+The lists of the commands that are not reliable (`ENTITY_UPDATE`), `ACK` and `RESEND` are never reassembled: each of their datagrams is given to the game, or used, as soon as it is received, as a list of its own. Their records are independent of each other, so a lost fragment only loses its own records, instead of the whole message.
+
+Example: a `ROOM_LIST` of 300 rooms, `Message id = 42`.
+
+| Datagram | `Message id` | `Sequence number` | `Sequence length` | `Size` | Records |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 42 | 1 | 2 | 1180 | 236 |
+| 2 | 42 | 2 | 2 | 320 | 64 |
+
+### Reliable delivery
+
+A command flagged *reliable* in §2 is sent with the following rules. The other commands are sent once.
+
+1. **Sender.** It keeps every datagram of the message until it is acknowledged. When no `ACK` arrived 200 ms after the last transmission, it sends all the datagrams again, unchanged. After 5 retransmissions it forgets the message without any notification.
+2. **Receiver.** Once the message is complete, it gives it to the game, remembers its `Message id` (the last 1024 ids of each sender) and queues an `ACK`. The queued ids of a sender are sent together, at most one `ACK` datagram per sender each time the network layer is polled.
+3. **Duplicates.** A message whose id is remembered is not given to the game again, but it is acknowledged again, since its `ACK` may have been lost. A retransmission is therefore harmless for the game, whatever the command.
+4. **Missing fragments.** A reliable message that stays incomplete for 50 ms after its last new fragment is not waited for until the sender's 200 ms timer: the receiver sends a `RESEND` listing each missing fragment, and repeats it every 50 ms, 5 times at most, before discarding the message. The sender answers a `RESEND` with the requested fragments only, while it still waits for the `ACK`. The complete message is then acknowledged normally.
+5. **Refused messages.** The server and the rooms only process datagrams from connected endpoints (§5), and a client only from its current host. A reliable message that is refused, for example with `ERROR NOT_CONNECTED` or `ERROR FULL`, or ignored, is not delivered and not remembered, but it is acknowledged at once, in its own `ACK` datagram, so that the sender stops retransmitting it.
+
+The `ACK` only says that the message was received, not that it was accepted: a refusal is a separate `ERROR`. Reliability does not order messages: a retransmitted message arrives after the ones sent later (§3.1).
+
+**Adding a command.** A new command is reliable by setting the `reliable` field of its entry in the command registry (`project/src/shared/Network/protocol.cpp`), then by adding its row to the table of §2. Nothing else changes. In the same way, a command becomes a list command with the `list` field of its entry: its handlers must then walk all the records of the list.
 
 ## 4. Example: move upward
 
-A client controls entity `130` and presses UP (action `0x00`). Example header: sequence number `1`, sequence length `1` (fragment 1 of 1), size `6`.
+A client controls entity `130` and presses UP (action `0x00`). Example header: message id `42`, sequence number `1`, sequence length `1` (fragment 1 of 1), size `6`.
 
 ```text
 52 54             # Magic: RT
 10                # PLAYER_INPUT
+00 00 00 2A       # Message id = 42
 00 00 00 01       # Sequence number = 1 (fragment index)
 00 00 00 01       # Sequence length = 1 (fragment count)
 00 06             # Payload size = 6
@@ -264,7 +342,7 @@ A client controls entity `130` and presses UP (action `0x00`). Example header: s
 01                # Pressed
 ```
 
-Total: 19 bytes.
+Total: 23 bytes.
 
 When the player releases UP, the client sends another `PLAYER_INPUT` packet with the same entity ID and action, but with `input_state = 0x00` (Released).
 
@@ -274,27 +352,27 @@ The server validates the input and updates the active input state. The game loop
 
 The receiver must validate **before** interpreting command payload fields:
 
-1. Reject datagrams shorter than 13 bytes or longer than 1200 bytes.
+1. Reject datagrams shorter than 17 bytes or longer than 1200 bytes.
 2. Check magic bytes `52 54`.
 3. Decode fields using big-endian, with bounds-checked reads.
-4. Require `Size == received_bytes - 13`, and `Sequence number == 1` and `Sequence length == 1` in Part 1.
+4. Require `Size == received_bytes - 17` and `1 <= Sequence number <= Sequence length <= 32`, with `Sequence length == 1` unless the command is a list.
 5. Reject unknown/reserved commands, wrong directions, and incorrect command-specific payload lengths. A valid command without handler on the receiving side is answered with `COMMAND_NOT_HANDLED` (§2).
 6. Reject malformed flags and entity IDs the sender is not allowed to control.
-7. Duplicate, delayed, and reordered UDP packets cannot be detected from the Part 1 header; apply the rules of §3 and §3.1 that do not depend on ordering. Buffering limits and timeout values are implementation policies and must be documented when implemented.
+7. Reordered and delayed UDP packets cannot be detected from the header, and the duplicates of a message are only detected for reliable commands (§3.2); apply the rules of §3 and §3.1 that do not depend on ordering. Buffering limits (incomplete messages, remembered ids) and timeout values are implementation policies, documented in §3.2.
 8. Never crash or terminate the server because of malformed input; discard invalid datagrams, optionally record rate-limited diagnostics.
 
-Do not echo invalid payloads back to the sender. A datagram rejected by rules 1–5 is answered with an `ERROR` (§3) only when it is at least 13 bytes long and carries the valid magic number, and never when the rejected command is itself `ERROR` (no error ping-pong). Shorter datagrams and datagrams with a wrong magic number are discarded silently. The 15-byte `ERROR` reply can be slightly larger than the smallest rejected datagram (13 bytes); rate limiting replies is an implementation policy.
+Do not echo invalid payloads back to the sender. A datagram rejected by rules 1–5 is answered with an `ERROR` (§3) only when it is at least 17 bytes long and carries the valid magic number, and never when the rejected command is itself `ERROR` (no error ping-pong). Shorter datagrams and datagrams with a wrong magic number are discarded silently. The 19-byte `ERROR` reply can be slightly larger than the smallest rejected datagram (17 bytes); rate limiting replies is an implementation policy.
 
-**Connected clients.** Apart from `CONNECT_REQUEST`, the server and the rooms only process valid datagrams coming from connected endpoints (§2.1, §3). A valid datagram from an endpoint that is not connected is answered with `ERROR` `NOT_CONNECTED`, so that the client knows it must connect again (for example after a server restart), except `DISCONNECT` and `ERROR`, which are ignored silently.
+**Connected clients.** Apart from `CONNECT_REQUEST`, the server and the rooms only process valid datagrams coming from connected endpoints (§2.1, §3). A valid datagram from an endpoint that is not connected is answered with `ERROR` `NOT_CONNECTED`, so that the client knows it must connect again (for example after a server restart), except `DISCONNECT` and `ERROR`, which are ignored silently. If its command is reliable, it is also acknowledged (§3.2).
 
 **Client side.** A client only processes datagrams coming from its current host (§2.1) and silently ignores any other sender.
 
 ## 6. Limitations and future extension
 
-- **No fragmentation in Part 1.** `Sequence number` (fragment index) and `Sequence length` (fragment count) are fixed to `1`; the fragmentation encoding and reassembly algorithm are not yet defined.
-- **No ordering information in Part 1.** The header has no datagram counter, so duplicate, delayed, or reordered datagrams cannot be detected.
-- **No guaranteed delivery in Part 1.** UDP loss can affect connection acceptance, spawns, destroys, and initial state. A complete production implementation requires retries, recovery snapshots, or reliable messaging, with measurements in Track #2.
+- **Fragmentation is limited to list commands.** A message is at most 32 fragments, about 37 KB (§3.2).
+- **No ordering.** `Message id` identifies a message, it does not order messages: delayed or reordered datagrams cannot be detected.
+- **Delivery is retried, not guaranteed.** A reliable message is abandoned after 5 retransmissions, and nobody is told. The commands that are not reliable (§2), `PLAYER_INPUT` and `ENTITY_UPDATE`, can be lost. The effect of the loss on the game still needs measurements in Track #2.
 - **No authentication or encryption.** A magic number is not a security credential. The server must validate source endpoints, permissions, and game rules.
-- **No wire version field.** The header is frozen for compatibility with Eric's design. Future incompatible changes require an explicit negotiated strategy or new magic number.
+- **No wire version field.** The `Message id` field made the header grow from 13 to 17 bytes, which is incompatible with the earlier layout. Future incompatible changes require an explicit negotiated strategy or new magic number.
 - **Issue #9 baseline approved.** The fields in [ReplicatedComponents.md](ReplicatedComponents.md) are the agreed Part 1 baseline. Health, velocity, animation, entity-control reassignment, and other future synchronized data require explicit new or revised wire messages; they cannot be inferred from C++ memory layout.
 - **Bandwidth optimizations** belong to Part 2, not this Part 1 protocol definition.

@@ -18,6 +18,7 @@
     #include <asio/post.hpp>
 
     #include "Error.hpp"
+    #include "channel.hpp"
     #include "packet.hpp"
     #include "protocol.hpp"
     #include <algorithm>
@@ -46,11 +47,20 @@ class UdpSocket {
     std::array<std::uint8_t, MAX_DATAGRAM_SIZE + 1> _buffer{};
     std::map<Command, std::vector<Handler>> _handlers;
     FallbackHandler _fallback;
+    std::map<Endpoint, Channel> _channels;
+    std::uint32_t _nextMessageId = 1;
 
     void Open(const Endpoint& local);
     void StartReceive();
     void OnReceive(const asio::error_code& ec, std::size_t size);
-    void Handle(const Endpoint& sender, Command command, const ArgsList& args);
+    void Handle(const Endpoint& sender, const DecodeResult& packet);
+    void Deliver(const Endpoint& sender, Command command, const ArgsList& args);
+    bool IsRepeat(const Endpoint& sender, std::uint32_t messageId);
+    bool IsPeer(const Endpoint& sender) const;
+    void OnAck(const Endpoint& sender, const ArgsList& acks);
+    void OnResend(const Endpoint& sender, const ArgsList& requests);
+    asio::error_code Transmit(const Endpoint& to, const Datagram& datagram);
+    void Flush();
     bool HandleHost(const Endpoint& sender, Command command);
     bool HandleClient(const Endpoint& sender, Command command);
     bool AcceptClient(const Endpoint& sender);

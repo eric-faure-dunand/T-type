@@ -71,7 +71,8 @@ Everything can be done with the keyboard only (arrows, ENTER, ESC, C, R); the mo
 ## Game data
 
 - `PLAYER_CREATION` gives the client its own `entity_id` and colour. Without it, no input is sent.
-- `INITIAL_STATE_BEGIN` / `ENTITY_SPAWN` x N / `INITIAL_STATE_END` are buffered and applied at once, only if the count matches (RFC §3.1). Otherwise the client sends `CONNECT_REQUEST` to the room again to get a fresh transfer.
+- `INITIAL_STATE_BEGIN` / `ENTITY_SPAWN` (one list of N records) / `INITIAL_STATE_END` are buffered and applied at once, only if the count matches (RFC §3.1). Otherwise the client sends `CONNECT_REQUEST` to the room again to get a fresh transfer.
+- `ENTITY_UPDATE`, `ENTITY_SPAWN` and `ENTITY_DESTROY` are lists: each handler walks all the records of the message. An `ENTITY_UPDATE` list can reach the handler in several calls if it needed several datagrams.
 - A destroyed `entity_id` is remembered for the whole game: a late `ENTITY_SPAWN` or `ENTITY_UPDATE` cannot bring it back.
 - `World` stores each entity in the ECS `Registry` with three components: `NetIdentity` (server id), `Transform` (position) and `Appearance` (kind, colour). The game screen draws them with `Registry::each`.
 
@@ -103,5 +104,5 @@ To add an action: add a value to `Action` (and to the RFC, §1), add a `Key` to 
 ## Limitations
 
 - Entities are drawn as coloured rectangles until sprites are added to `Display`.
-- No interpolation: positions jump at each `ENTITY_UPDATE` (20 Hz target).
+- No interpolation: positions jump at each `ENTITY_UPDATE` (20 Hz).
 - No sound yet.
