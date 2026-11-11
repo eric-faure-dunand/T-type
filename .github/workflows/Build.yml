@@ -24,13 +24,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Diagnose Linux DNS
+      - name: Configure Linux DNS
         if: runner.os == 'Linux'
         run: |
+          sudo resolvectl dns eth0 1.1.1.1 1.0.0.1
+          sudo resolvectl flush-caches
           resolvectl status
-          echo "Testing Cloudflare DNS..."
-          dig @1.1.1.1 archive.ubuntu.com +time=3 +tries=1 || true
-          dig @1.1.1.1 security.ubuntu.com +time=3 +tries=1 || true
+          getent hosts archive.ubuntu.com
+          getent hosts security.ubuntu.com
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'
