@@ -13,3 +13,5 @@ r-type_client
 
 # Local VS Code configuration
 .vscode/
+
+/build-release/

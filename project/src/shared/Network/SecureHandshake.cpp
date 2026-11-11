@@ -17,7 +17,8 @@ template <std::size_t Size>
 void append(std::vector<std::uint8_t>& output,
     const std::array<std::uint8_t, Size>& value)
 {
-    output.insert(output.end(), value.begin(), value.end());
+    for (std::uint8_t byte : value)
+        output.push_back(byte);
 }
 
 template <std::size_t Size>
