@@ -4,7 +4,12 @@ build/
 r-type_server
 cmake.log
 r-type_client
-/compressor_tests
-/crypter_tests
-/secure_pipeline_tests
+
+
 .local/
+
+# Generated test executables
+*_tests
+
+# Local VS Code configuration
+.vscode/
