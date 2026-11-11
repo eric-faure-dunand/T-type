@@ -24,14 +24,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Diagnose Linux network
+      - name: Diagnose Linux DNS
         if: runner.os == 'Linux'
         run: |
-          cat /etc/resolv.conf
-          getent hosts github.com || true
-          getent hosts archive.ubuntu.com || true
-          getent hosts security.ubuntu.com || true
-          curl -IL --connect-timeout 10 https://archive.ubuntu.com/ubuntu/ || true
+          resolvectl status
+          echo "Testing Cloudflare DNS..."
+          dig @1.1.1.1 archive.ubuntu.com +time=3 +tries=1 || true
+          dig @1.1.1.1 security.ubuntu.com +time=3 +tries=1 || true
 
       - name: Configure (Linux)
         if: runner.os == 'Linux'
