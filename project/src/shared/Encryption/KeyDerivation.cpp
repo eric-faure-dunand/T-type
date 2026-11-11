@@ -11,6 +11,7 @@
 #include <openssl/kdf.h>
 #include <stdexcept>
 #include <string>
+#include <limits>
 
 namespace r_type {
 
@@ -25,12 +26,18 @@ KeyDerivation::Key deriveKey(const KeyDerivation::Key& secret,
         EVP_PKEY_CTX_free);
     if (!context)
         throw std::runtime_error("Cannot create HKDF context");
+    if (info.size() > static_cast<std::size_t>(std::numeric_limits<int>::max()))
+        throw std::runtime_error("HKDF info is too large");
+
     if (EVP_PKEY_derive_init(context.get()) <= 0
         || EVP_PKEY_CTX_set_hkdf_md(context.get(), EVP_sha256()) <= 0
-        || EVP_PKEY_CTX_set1_hkdf_salt(context.get(), salt.data(), salt.size()) <= 0
-        || EVP_PKEY_CTX_set1_hkdf_key(context.get(), secret.data(), secret.size()) <= 0
+        || EVP_PKEY_CTX_set1_hkdf_salt(context.get(), salt.data(),
+            static_cast<int>(salt.size())) <= 0
+        || EVP_PKEY_CTX_set1_hkdf_key(context.get(), secret.data(),
+            static_cast<int>(secret.size())) <= 0
         || EVP_PKEY_CTX_add1_hkdf_info(context.get(),
-            reinterpret_cast<const unsigned char*>(info.data()), info.size()) <= 0)
+            reinterpret_cast<const unsigned char*>(info.data()),
+            static_cast<int>(info.size())) <= 0)
         throw std::runtime_error("Cannot initialize HKDF");
 
     KeyDerivation::Key key{};

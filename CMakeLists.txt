@@ -432,6 +432,7 @@ target_include_directories(secure_handshake_tests PRIVATE
 
 target_link_libraries(secure_handshake_tests PRIVATE
     GTest::gtest_main
+    OpenSSL::Crypto
 )
 
 gtest_discover_tests(secure_handshake_tests)
