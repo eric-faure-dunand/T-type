@@ -435,3 +435,11 @@ target_link_libraries(secure_handshake_tests PRIVATE
 )
 
 gtest_discover_tests(secure_handshake_tests)
+
+
+# MSVC compatibility
+if(
+    MSVC)
+    target_compile_definitions(r-type_server PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(r-type_client PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
