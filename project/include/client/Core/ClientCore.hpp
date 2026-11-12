@@ -37,6 +37,7 @@ constexpr float ROOM_REFRESH_DELAY = 2.f;
 constexpr float INPUT_RESEND_DELAY = 0.1f;
 constexpr int RELEASE_RESENDS = 3;
 constexpr float MESSAGE_DURATION = 4.f;
+constexpr float GAME_OVER_DELAY = 1.f;
 
 enum class Action : std::uint8_t {
     Up = 0x00,
@@ -72,6 +73,7 @@ constexpr Rgba PROJECTILE{253, 249, 0, 255};
 constexpr Rgba OTHER{130, 130, 130, 255};
 constexpr Rgba BACKGROUND_SHADE{0, 0, 0, 110};
 constexpr Rgba BOSS_HEALTH{230, 60, 60, 255};
+constexpr Rgba GAME_OVER_SHADE{0, 0, 0, 150};
 constexpr Rgba PLAYERS[4] = {{102, 191, 255, 255}, {255, 109, 194, 255}, {0, 200, 80, 255}, {255, 203, 0, 255}};
 }
 
@@ -87,6 +89,18 @@ constexpr std::array<Character, 4> CHARACTERS = {{
     {"Soha", "Tunisie", "assets/ships/soha.png", "assets/backgrounds/tunisie.png"},
     {"Hilal", "Turquie", "assets/ships/hilal.png", "assets/backgrounds/turquie.png"},
     {"Eric", "Corse", "assets/ships/eric.png", "assets/backgrounds/corse.png"},
+}};
+
+struct LevelInfo {
+    const char *name;
+    const char *country;
+};
+
+constexpr std::array<LevelInfo, 4> LEVELS = {{
+    {"Buenos Aires", "Argentine"},
+    {"Sidi Bou Said", "Tunisie"},
+    {"Istanbul", "Turquie"},
+    {"Le Maquis", "Corse"},
 }};
 
 constexpr const char *ASSETS_DIR = "assets/";
@@ -121,6 +135,7 @@ class ClientCore {
         Connecting,
         Lobby,
         Character,
+        Level,
         Joining,
         Game,
         Leaving
@@ -153,6 +168,10 @@ class ClientCore {
     float _refreshTimer = 0.f;
     std::uint8_t _character = 0;
     std::optional<std::uint32_t> _joinTarget;
+    std::uint8_t _levelChoice = 0;
+    std::optional<std::uint8_t> _requestedLevel;
+    std::optional<std::uint8_t> _level;
+    std::optional<float> _gameOver;
     std::set<Action> _held;
     std::map<Action, int> _releases;
     float _inputTimer = 0.f;
@@ -188,17 +207,22 @@ class ClientCore {
     void OnEntityUpdate(const ArgsList& args);
     void OnEntityDestroy(const ArgsList& args);
     void OnBossHealth(const ArgsList& args);
+    void OnLevelStart(const ArgsList& args);
 
     void MenuFrame();
     void LobbyFrame(float dt);
     void CharacterFrame(float dt);
+    void LevelFrame(float dt);
     void GameFrame(float dt);
     void WaitingFrame(const std::string& text);
 
     void ScrollStars(float dt);
     void DrawStars();
     void DrawBackground();
+    void KeepAlive(float dt);
     void DrawBossBar();
+    void GameOverFrame(float dt);
+    void LeaveRoom();
     void DrawEntities();
     void DrawFace(std::size_t character, float x, float y, float size);
     void LoadSprite(const char *name);

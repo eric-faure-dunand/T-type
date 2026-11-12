@@ -63,6 +63,9 @@ void ClientCore::Run() {
             case Scene::Character:
                 CharacterFrame(dt);
                 break;
+            case Scene::Level:
+                LevelFrame(dt);
+                break;
             case Scene::Joining:
                 WaitingFrame("Entering the room...");
                 break;

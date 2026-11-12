@@ -71,13 +71,15 @@ static Rgba ColorOf(const Appearance& look) {
 }
 
 void ClientCore::GameFrame(float dt) {
-    std::set<Action> held;
-    for (const Binding& binding : BINDINGS)
-        if (_display.IsKeyDown(binding.key))
-            held.insert(binding.action);
-    if (held != _held)
-        SetHeld(held);
-    ResendInputs(dt);
+    if (!_gameOver) {
+        std::set<Action> held;
+        for (const Binding& binding : BINDINGS)
+            if (_display.IsKeyDown(binding.key))
+                held.insert(binding.action);
+        if (held != _held)
+            SetHeld(held);
+        ResendInputs(dt);
+    }
 
     DrawBackground();
     DrawEntities();
@@ -90,17 +92,39 @@ void ClientCore::GameFrame(float dt) {
     if (_world.Count() == 0)
         DrawCentered("Waiting for the server...", WINDOW_HEIGHT / 2 - 15, 30, palette::FOREGROUND);
 
-    if (_display.IsKeyPressed(Key::Escape)) {
-        Send(Command::DisconnectRoom, {{_world.Player().value_or(0)}});
-        ReturnToLobby();
-    }
+    if (_gameOver)
+        GameOverFrame(dt);
+    else if (_display.IsKeyPressed(Key::Escape))
+        LeaveRoom();
+}
+
+void ClientCore::GameOverFrame(float dt) {
+    *_gameOver += dt;
+    _display.FillRect(0.f, 0.f, static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT),
+        palette::GAME_OVER_SHADE);
+    DrawCentered("GAME OVER", WINDOW_HEIGHT / 2 - 70, 80, palette::ALERT);
+    DrawCentered("Your ship was destroyed", WINDOW_HEIGHT / 2 + 25, 24, palette::FOREGROUND);
+    if (*_gameOver < GAME_OVER_DELAY)
+        return;
+    DrawCentered("ENTER or ESC to go back to the rooms", WINDOW_HEIGHT / 2 + 70, 20, palette::DIM);
+    if (_display.IsKeyPressed(Key::Enter) || _display.IsKeyPressed(Key::Escape))
+        LeaveRoom();
+}
+
+void ClientCore::LeaveRoom() {
+    Send(Command::DisconnectRoom, {{_world.Player().value_or(0)}});
+    ReturnToLobby();
 }
 
 void ClientCore::DrawBackground() {
     const int character = _world.PlayerColor();
-    if (character < 0 || character >= static_cast<int>(CHARACTERS.size()))
+    const char *country = nullptr;
+    if (_level)
+        country = LEVELS[*_level].country;
+    else if (character >= 0 && character < static_cast<int>(CHARACTERS.size()))
+        country = CHARACTERS[static_cast<std::size_t>(character)].country;
+    if (!country)
         return;
-    const char *country = CHARACTERS[static_cast<std::size_t>(character)].country;
     if (!_display.HasSprite(country))
         return;
     const auto width = static_cast<float>(WINDOW_WIDTH);

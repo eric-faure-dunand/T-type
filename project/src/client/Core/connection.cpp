@@ -72,6 +72,8 @@ void ClientCore::ResetRoom() {
     _destroyed.clear();
     _transfer.reset();
     _boss.reset();
+    _level.reset();
+    _gameOver.reset();
     _roomPort = 0;
     _held.clear();
     _releases.clear();
