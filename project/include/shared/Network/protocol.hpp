@@ -35,6 +35,7 @@ enum class Command : std::uint8_t {
     EntityDestroy = 0x23,
     InitialStateEnd = 0x24,
     PlayerCreation = 0x25,
+    BossHealth = 0x26,
     Ack = 0x30,
     Resend = 0x31,
     HandshakeReady = 0x32,

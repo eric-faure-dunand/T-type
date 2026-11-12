@@ -37,6 +37,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::InitialStateEnd, {Direction::ServerToClient, {ArgType::U32}, false, false, true}},
     // entity_id, x, y, color
     {Command::PlayerCreation, {Direction::ServerToClient, {ArgType::U32, ArgType::I32, ArgType::I32, ArgType::U8}, false, false, true}},
+    // entity_id, health_percent
+    {Command::BossHealth, {Direction::ServerToClient, {ArgType::U32, ArgType::U8}, false, false, true}},
     {Command::Ack, {Direction::Both, {ArgType::U32}, true}},
     {Command::Resend, {Direction::Both, {ArgType::U32, ArgType::U32}, true}},
     // Internal secure handshake confirmation

@@ -8,6 +8,7 @@
 #ifndef CLIENT_CORE_HPP
     #define CLIENT_CORE_HPP
 
+    #include <algorithm>
     #include <array>
     #include <cstdint>
     #include <map>
@@ -70,6 +71,7 @@ constexpr Rgba ENEMY{190, 33, 55, 255};
 constexpr Rgba PROJECTILE{253, 249, 0, 255};
 constexpr Rgba OTHER{130, 130, 130, 255};
 constexpr Rgba BACKGROUND_SHADE{0, 0, 0, 110};
+constexpr Rgba BOSS_HEALTH{230, 60, 60, 255};
 constexpr Rgba PLAYERS[4] = {{102, 191, 255, 255}, {255, 109, 194, 255}, {0, 200, 80, 255}, {255, 203, 0, 255}};
 }
 
@@ -87,10 +89,26 @@ constexpr std::array<Character, 4> CHARACTERS = {{
     {"Eric", "Corse", "assets/ships/eric.png", "assets/backgrounds/corse.png"},
 }};
 
-constexpr const char *ENEMY_SPRITE = "enemy";
-constexpr const char *ENEMY_IMAGE = "assets/enemies/ballon.png";
-constexpr const char *MISSILE_SPRITE = "missile";
-constexpr const char *MISSILE_IMAGE = "assets/shots/missile.png";
+constexpr const char *ASSETS_DIR = "assets/";
+constexpr const char *IMAGE_EXTENSION = ".png";
+
+constexpr std::array<const char *, 14> ENEMY_SPRITES = {
+    "enemies/ballon", "enemies/supporter", "enemies/defenseur", "enemies/scorpion", "enemies/harissa",
+    "enemies/simit", "enemies/cay", "enemies/chat", "enemies/grognard", "enemies/sanglier",
+    "bosses/eldiez", "bosses/couscoussier", "bosses/doner", "bosses/napoleon",
+};
+
+constexpr int FIRST_BOSS = 10;
+constexpr float BOSS_SIZE = 160.f;
+constexpr std::array<const char *, 4> BOSS_NAMES = {"El Diez", "Le Couscoussier", "Le Doner Geant", "Napoleon"};
+
+constexpr std::array<const char *, 2> MISSILE_SPRITES = {"shots/missile", "shots/enemy_shot"};
+
+struct BossBar {
+    std::uint32_t id = 0;
+    std::string name;
+    int percent = 100;
+};
 
 struct RoomInfo {
     std::uint32_t id = 0;
@@ -140,6 +158,7 @@ class ClientCore {
     float _inputTimer = 0.f;
     std::unordered_set<std::uint32_t> _destroyed;
     std::optional<Transfer> _transfer;
+    std::optional<BossBar> _boss;
     std::vector<Star> _stars;
 
     void SetScene(Scene scene);
@@ -168,6 +187,7 @@ class ClientCore {
     void OnEntitySpawn(const ArgsList& args);
     void OnEntityUpdate(const ArgsList& args);
     void OnEntityDestroy(const ArgsList& args);
+    void OnBossHealth(const ArgsList& args);
 
     void MenuFrame();
     void LobbyFrame(float dt);
@@ -178,8 +198,10 @@ class ClientCore {
     void ScrollStars(float dt);
     void DrawStars();
     void DrawBackground();
+    void DrawBossBar();
     void DrawEntities();
     void DrawFace(std::size_t character, float x, float y, float size);
+    void LoadSprite(const char *name);
     void DrawMessage(float dt);
     void DrawCentered(const std::string& text, int y, int size, Rgba color);
     bool Button(const std::string& label, float x, float y, float width, float height);

@@ -20,16 +20,23 @@ static std::uint8_t WireKind(game::EntityKind kind) {
     }
 }
 
+static std::uint8_t WireVariant(ecs::Registry& registre, ecs::Entity entity, game::EntityKind kind) {
+    if (const game::Player* player = registre.tryGet<game::Player>(entity))
+        return static_cast<std::uint8_t>(player->id - 1);
+    if (const game::Enemy* enemy = registre.tryGet<game::Enemy>(entity))
+        return static_cast<std::uint8_t>(enemy->type);
+    return kind == game::EntityKind::EnemyMissile ? 1 : 0;
+}
+
 Args Room::SpawnArgs(ecs::Entity entity) {
     const game::Position& position = registre.get<game::Position>(entity);
     const game::Kind& kind = registre.get<game::Kind>(entity);
-    const game::Player* player = registre.tryGet<game::Player>(entity);
     return {
         ecs::entityValue(entity),
         WireKind(kind.value),
         static_cast<std::int32_t>(position.x),
         static_cast<std::int32_t>(position.y),
-        static_cast<std::uint8_t>(player ? player->id - 1 : 0)
+        WireVariant(registre, entity, kind.value)
     };
 }
 
@@ -70,10 +77,12 @@ void Room::SyncEntities() {
             continue;
         }
         destroys.push_back({*it});
+        _bossHealth.erase(*it);
         it = _synced.erase(it);
     }
     Broadcast(Command::EntitySpawn, spawns);
     Broadcast(Command::EntityDestroy, destroys);
+    SyncBossHealth();
     if (++_tick % (TICK_RATE / ROOM_UPDATE_RATE) != 0)
         return;
     ArgsList updates;
@@ -87,6 +96,19 @@ void Room::SyncEntities() {
         }
     );
     Broadcast(Command::EntityUpdate, updates);
+}
+
+void Room::SyncBossHealth() {
+    registre.each<game::Boss, game::Health>([this](ecs::Entity entity, game::Boss&, game::Health& health) {
+        const std::uint32_t id = ecs::entityValue(entity);
+        const int current = std::max(health.current, 0);
+        const auto percent = static_cast<std::uint8_t>(health.max > 0 ? current * 100 / health.max : 0);
+        const auto known = _bossHealth.find(id);
+        if (known != _bossHealth.end() && known->second == percent)
+            return;
+        _bossHealth[id] = percent;
+        Broadcast(Command::BossHealth, {{id, percent}});
+    });
 }
 
 }

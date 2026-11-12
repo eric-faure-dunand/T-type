@@ -11,5 +11,5 @@
         { "time": 26, "enemy": "cay",       "pattern": "sine",      "count": 6, "spacing": 0.5 },
         { "time": 32, "enemy": "chat",      "pattern": "bounce",    "count": 8, "spacing": 0.3 }
     ],
-    "boss": { "type": "doner", "health": 60, "time": 40 }
+    "boss": { "type": "doner", "health": 40, "time": 40 }
 }

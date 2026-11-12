@@ -43,7 +43,7 @@ void collisionSystem(ecs::Registry &r, float)
             hp.current -= dmg.amount;
             hit = true;
         });
-        if (hit)
+        if (hit && !r.has<Boss>(enemy))
             usedUp.push_back(enemy);
     });
 

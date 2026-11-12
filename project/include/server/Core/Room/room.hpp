@@ -11,6 +11,7 @@
     #include <deque>
     #include <mutex>
     #include <random>
+    #include <unordered_map>
     #include <unordered_set>
 
     #include "sig.hpp"
@@ -27,6 +28,7 @@ constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
 constexpr std::size_t MAX_PENDING_INPUTS = 256;
 constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
 constexpr unsigned int ROOM_UPDATE_RATE = 20;
+constexpr const char *DEFAULT_LEVEL = "assets/levels/turquie.json";
 constexpr std::size_t MAX_RECORDS_PER_MESSAGE = 2048;
 
 class Room {
@@ -56,6 +58,7 @@ class Room {
     std::map<Endpoint, ecs::Entity> _players;
 
     std::unordered_set<std::uint32_t> _synced;
+    std::unordered_map<std::uint32_t, std::uint8_t> _bossHealth;
     std::uint64_t _tick = 0;
 
     void Run();
@@ -73,6 +76,7 @@ class Room {
     void Broadcast(Command command, const ArgsList& records);
     void ApplyInputs();
     void SyncEntities();
+    void SyncBossHealth();
 
     void ProcessPendingDisconnections();
 

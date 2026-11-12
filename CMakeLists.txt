@@ -56,6 +56,15 @@ if(NOT EXISTS "${ASIO_INCLUDE_DIR}/asio.hpp")
 endif()
 message(STATUS "asio include: ${ASIO_INCLUDE_DIR}")
 
+CPMAddPackage(
+    NAME nlohmann_json
+    GITHUB_REPOSITORY nlohmann/json
+    VERSION 3.11.3
+    OPTIONS
+        "JSON_BuildTests OFF"
+        "JSON_SystemInclude ON"
+)
+
 if(NOT TARGET asio)
     find_package(Threads REQUIRED)
     add_library(asio INTERFACE)
@@ -89,6 +98,7 @@ target_include_directories(r-type_server
         project/include/shared/Game
 )
 
+target_link_libraries(r-type_server PRIVATE asio nlohmann_json::nlohmann_json)
 target_link_libraries(r-type_server PRIVATE asio r_type_lz4 OpenSSL::Crypto)
 
 if(MSVC)
@@ -141,6 +151,7 @@ target_include_directories(r-type_client
         project/include/shared/Game
 )
 
+target_link_libraries(r-type_client PRIVATE asio raylib nlohmann_json::nlohmann_json)
 target_link_libraries(r-type_client PRIVATE asio raylib r_type_lz4 OpenSSL::Crypto)
 
 if(MSVC)

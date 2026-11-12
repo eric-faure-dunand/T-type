@@ -12,7 +12,13 @@ namespace r_type {
 Room::Room(std::uint32_t id):
     _id(id), net(Role::Server, DEFAULT_ROOM_CLIENTS, true), _lastAnnounce(std::chrono::steady_clock::now()) {
     game::registerGameplayComponents(registre);
-    game::addGameplaySystems(_systems, std::random_device{}());
+    game::LevelData level;
+    try {
+        level = game::loadLevel(DEFAULT_LEVEL);
+    } catch (const IError& error) {
+        std::cerr << Color::BRIGHT_RED << "[ROOM " << _id << "] " << error.what() << Color::RESET << '\n';
+    }
+    game::addGameplaySystems(_systems, std::random_device{}(), level);
 
     net.On(Command::ConnectRequest, [this](const Endpoint& from, const ArgsList&) {
         HandlePlayerConnection(from);

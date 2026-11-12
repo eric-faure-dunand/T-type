@@ -27,6 +27,32 @@ Part 1 constraints:
 
 ## 2. Command registry
 
+| Code | Command | Direction | Handled by | Size | Purpose |
+|---|---|---|---|---:|---|
+| `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | Ask to connect |
+| `0x02` | `CONNECT_ACCEPT` | Server → Client | Server, Room | 0 | Accept the connection |
+| `0x03` | `DISCONNECT` | Both | Server | 0 | End the connection to the server |
+| `0x04` | `CREATE_ROOM` | Client → Server | Server | 0 | Create a room and enter it |
+| `0x05` | `JOIN_ROOM` | Client → Server | Server | 4 | Ask to enter a room |
+| `0x06` | `ROOM_JOINED` | Server → Client | Server | 4 | Give the port of the room to connect to |
+| `0x07` | `LIST_ROOMS` | Client → Server | Server | 0 | Ask for the rooms with free slots |
+| `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | List the rooms with free slots |
+| `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | Leave the room, giving the player entity |
+| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | Submit input press/release events for a controlled entity |
+| `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | Ask to play a given character |
+| `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | Begin an initial state transfer |
+| `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 | Publish authoritative entity position |
+| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 | Create or refresh an entity representation |
+| `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
+| `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
+| `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | Tell a client which entity it controls |
+| `0x26` | `BOSS_HEALTH` | Server → Client | Room | 5 | Give the health of a boss |
+| `0x30` | `ACK` | Reserved | — | — | Future reliable delivery; not used in Part 1 |
+| `0x84` | `ERROR` | Both | Server, Room | 2 | Report a rejected datagram to its sender |
+
+In the *Direction* column, *Server* means the host side: the server socket or a room socket. The *Handled by* column says where the command is meant to be handled (§2.1). `CONNECT_REQUEST`, `CONNECT_ACCEPT` and `DISCONNECT` are handled by the network layer itself, except that a room ignores `DISCONNECT` (§2.1). Any other valid command for which the receiver has no handler is answered with `ERROR COMMAND_NOT_HANDLED`, except `ERROR`, which is never answered.
+
+Unknown and reserved command codes are rejected. All payload layouts below are exact: additional bytes are invalid.
 | Code | Command | Direction | Handled by | Size | Reliable | Purpose |
 |---|---|---|---|---:|:---:|---|
 | `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | yes | Ask to connect |
@@ -186,7 +212,9 @@ A list of records, one per entity. `Size` must be a multiple of 14. A datagram h
 | 4 | `entity_kind` | uint8 | `0x01` player ship, `0x02` enemy, `0x03` projectile; others reserved |
 | 5 | `x` | int32 | Initial authoritative X coordinate |
 | 9 | `y` | int32 | Initial authoritative Y coordinate |
-| 13 | `color` | uint8 | Player character, `0` to `3` (see `CHOOSE_CHARACTER`), unique among the players of the room; it also gives the player colour. `0` and ignored for non-player entities |
+| 13 | `color` | uint8 | Variant, depends on `entity_kind`. Player: its character, `0` to `3` (see `CHOOSE_CHARACTER`), unique among the players of the room; it also gives the player colour. Enemy: its type, see below. Projectile: `0x00` fired by a player, `0x01` fired by an enemy |
+
+Enemy types: `0x00` ballon, `0x01` supporter, `0x02` defenseur, `0x03` scorpion, `0x04` harissa, `0x05` simit, `0x06` cay, `0x07` chat, `0x08` grognard, `0x09` sanglier, and the bosses `0x0A` El Diez, `0x0B` couscoussier, `0x0C` döner, `0x0D` Napoléon; others reserved. A client that does not know a value draws a generic enemy.
 
 `entity_kind` is a rendering/spawning hint, not a C++ class identity. The `entity_kind` values are the approved Part 1 wire-level baseline from issue #9; adding more kinds or ECS fields requires a documented protocol revision. A duplicate spawn for the same live entity must not create a second entity.
 
@@ -207,6 +235,15 @@ Unknown IDs may be ignored. The server **must not reuse an entity ID during a ga
 | 0 | `entity_count` | uint32 | Must match the begin marker and the number of collected unique entity IDs |
 
 A matching count alone does **not** prove the transfer is complete. The rules in §3.1 apply. The messages of the transfer are reliable (§3.2), but the transfer itself has no transfer ID: a message abandoned by the network layer after its last retransmission still requires the client to retry.
+
+### `BOSS_HEALTH` (`0x26`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | The boss (an enemy whose type is `0x0A` or more, see `ENTITY_SPAWN`) |
+| 4 | `health_percent` | uint8 | Remaining health, `0` to `100` |
+
+Sent by the room to every client when a boss appears and each time its health percentage changes, and to a client after its initial state transfer for every live boss. It only drives the display: the boss disappears with `ENTITY_DESTROY` like any entity. A value for an unknown entity may be kept until its `ENTITY_SPAWN` arrives.
 
 ### `PLAYER_CREATION` (`0x25`)
 

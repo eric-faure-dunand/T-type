@@ -12,6 +12,7 @@
     #include "Combat.hpp"
     #include "GameConfig.hpp"
     #include "Input.hpp"
+    #include "Pattern.hpp"
     #include "Tags.hpp"
     #include "Transform.hpp"
     #include "Weapon.hpp"
@@ -20,7 +21,8 @@ namespace r_type::game {
 
 void registerGameplayComponents(ecs::Registry &r);
 ecs::Entity spawnPlayer(ecs::Registry &r, int id, float x, float y);
-ecs::Entity spawnEnemy(ecs::Registry &r, float x, float y, float firstShotDelay);
+ecs::Entity spawnEnemy(ecs::Registry &r, EnemyType type, PatternType pattern, float x, float y, float firstShotDelay);
+ecs::Entity spawnBoss(ecs::Registry &r, EnemyType type, int health);
 ecs::Entity spawnMissile(ecs::Registry &r, float x, float y, float speedX, int damage, bool fromPlayer);
 
 }

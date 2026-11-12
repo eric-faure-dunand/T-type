@@ -16,7 +16,28 @@ struct Player {
     int id = 1;
 };
 
-struct Enemy {};
+enum class EnemyType : std::uint8_t {
+    Ballon = 0,
+    Supporter = 1,
+    Defenseur = 2,
+    Scorpion = 3,
+    Harissa = 4,
+    Simit = 5,
+    Cay = 6,
+    Chat = 7,
+    Grognard = 8,
+    Sanglier = 9,
+    ElDiez = 10,
+    Couscoussier = 11,
+    Doner = 12,
+    Napoleon = 13
+};
+
+struct Enemy {
+    EnemyType type = EnemyType::Ballon;
+};
+
+struct Boss {};
 
 struct Projectile {
     bool fromPlayer = true;

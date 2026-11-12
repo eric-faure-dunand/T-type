@@ -11,5 +11,5 @@
         { "time": 27, "enemy": "grognard",  "pattern": "formation", "count": 8, "spacing": 0 },
         { "time": 33, "enemy": "sanglier",  "pattern": "sine",      "count": 6, "spacing": 0.4 }
     ],
-    "boss": { "type": "napoleon", "health": 100, "time": 40 }
+    "boss": { "type": "napoleon", "health": 60, "time": 40 }
 }
