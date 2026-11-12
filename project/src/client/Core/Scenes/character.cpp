@@ -44,7 +44,7 @@ void ClientCore::CharacterFrame(float dt) {
             static_cast<int>(y) + 260, 20, palette::DIM);
     }
 
-    DrawCentered("LEFT / RIGHT to choose  -  ENTER to play  -  ESC to go back", 560, 18, palette::DIM);
+    DrawHint("LEFT / RIGHT to choose  -  ENTER to play  -  ESC to go back", 560, 18);
 
     const auto total = static_cast<std::uint8_t>(CHARACTERS.size());
     if (_display.IsKeyPressed(Key::Right))

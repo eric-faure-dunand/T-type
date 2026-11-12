@@ -106,7 +106,7 @@ void ClientCore::GameOverFrame(float dt) {
     DrawCentered("Your ship was destroyed", WINDOW_HEIGHT / 2 + 25, 24, palette::FOREGROUND);
     if (*_gameOver < GAME_OVER_DELAY)
         return;
-    DrawCentered("ENTER or ESC to go back to the rooms", WINDOW_HEIGHT / 2 + 70, 20, palette::DIM);
+    DrawHint("ENTER or ESC to go back to the rooms", WINDOW_HEIGHT / 2 + 70, 20);
     if (_display.IsKeyPressed(Key::Enter) || _display.IsKeyPressed(Key::Escape))
         LeaveRoom();
 }

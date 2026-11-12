@@ -10,6 +10,7 @@
 
     #include <algorithm>
     #include <array>
+    #include <cctype>
     #include <cstdint>
     #include <map>
     #include <optional>
@@ -38,6 +39,13 @@ constexpr float INPUT_RESEND_DELAY = 0.1f;
 constexpr int RELEASE_RESENDS = 3;
 constexpr float MESSAGE_DURATION = 4.f;
 constexpr float GAME_OVER_DELAY = 1.f;
+constexpr float MENU_SLIDE = 3.f;
+constexpr float MENU_FADE = 1.f;
+constexpr const char *WINDOW_TITLE = "R-Type World Tour";
+constexpr const char *TITLE_FONT = "title";
+constexpr const char *TEXT_FONT = "text";
+constexpr const char *TITLE_FONT_PATH = "assets/fonts/RussoOne-Regular.ttf";
+constexpr const char *TEXT_FONT_PATH = "assets/fonts/Exo2-Regular.ttf";
 
 enum class Action : std::uint8_t {
     Up = 0x00,
@@ -63,7 +71,8 @@ constexpr std::array<Binding, 5> BINDINGS = {{
 namespace palette {
 constexpr Rgba BACKGROUND{8, 8, 20, 255};
 constexpr Rgba FOREGROUND{235, 235, 245, 255};
-constexpr Rgba DIM{140, 140, 160, 255};
+constexpr Rgba DIM{205, 205, 225, 255};
+constexpr Rgba KEY{255, 203, 0, 255};
 constexpr Rgba ACCENT{102, 191, 255, 255};
 constexpr Rgba PANEL{24, 24, 44, 255};
 constexpr Rgba PANEL_HOVER{40, 40, 72, 255};
@@ -74,6 +83,9 @@ constexpr Rgba OTHER{130, 130, 130, 255};
 constexpr Rgba BACKGROUND_SHADE{0, 0, 0, 110};
 constexpr Rgba BOSS_HEALTH{230, 60, 60, 255};
 constexpr Rgba GAME_OVER_SHADE{0, 0, 0, 150};
+constexpr Rgba MENU_SHADE{8, 8, 20, 140};
+constexpr Rgba INPUT{8, 8, 20, 220};
+constexpr Rgba BUTTON_HOVER{255, 255, 255, 60};
 constexpr Rgba PLAYERS[4] = {{102, 191, 255, 255}, {255, 109, 194, 255}, {0, 200, 80, 255}, {255, 203, 0, 255}};
 }
 
@@ -98,7 +110,7 @@ struct LevelInfo {
 
 constexpr std::array<LevelInfo, 4> LEVELS = {{
     {"Buenos Aires", "Argentine"},
-    {"Sidi Bou Said", "Tunisie"},
+    {"Sidi Bou Saïd", "Tunisie"},
     {"Istanbul", "Turquie"},
     {"Le Maquis", "Corse"},
 }};
@@ -114,7 +126,7 @@ constexpr std::array<const char *, 14> ENEMY_SPRITES = {
 
 constexpr int FIRST_BOSS = 10;
 constexpr float BOSS_SIZE = 160.f;
-constexpr std::array<const char *, 4> BOSS_NAMES = {"El Diez", "Le Couscoussier", "Le Doner Geant", "Napoleon"};
+constexpr std::array<const char *, 4> BOSS_NAMES = {"El Diez", "Le Couscoussier", "Le Döner Géant", "Napoléon"};
 
 constexpr std::array<const char *, 2> MISSILE_SPRITES = {"shots/missile", "shots/enemy_shot"};
 
@@ -216,6 +228,11 @@ class ClientCore {
     void GameFrame(float dt);
     void WaitingFrame(const std::string& text);
 
+    void DrawMenuBackground();
+    void DrawTitle();
+    void DrawTourBox(float x, float y, float width, float height);
+    bool TourButton(const std::string& label, float x, float y, float width, float height);
+    void DrawHint(const std::string& text, int y, int size);
     void ScrollStars(float dt);
     void DrawStars();
     void DrawBackground();

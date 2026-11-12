@@ -50,7 +50,7 @@ void ClientCore::LevelFrame(float dt) {
             static_cast<int>(textY) + 75, 18, palette::ALERT);
     }
 
-    DrawCentered("LEFT / RIGHT to choose  -  ENTER to create the room  -  ESC to go back", 560, 18, palette::DIM);
+    DrawHint("LEFT / RIGHT to choose  -  ENTER to create the room  -  ESC to go back", 560, 18);
 
     const auto total = static_cast<std::uint8_t>(LEVELS.size());
     if (_display.IsKeyPressed(Key::Right))

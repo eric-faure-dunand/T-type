@@ -12,9 +12,12 @@
 namespace r_type::client {
 
 ClientCore::ClientCore(std::string ip):
-    _display(WINDOW_WIDTH, WINDOW_HEIGHT, "R-Type"), _net(Role::Client), _ip(std::move(ip)) {
+    _display(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE), _net(Role::Client), _ip(std::move(ip)) {
     _net.SetTrustedServerKey(SecurityConfig::trustedServerKey());
     RegisterHandlers();
+    _display.LoadFont(TITLE_FONT, TITLE_FONT_PATH);
+    _display.LoadFont(TEXT_FONT, TEXT_FONT_PATH);
+    _display.UseFont(TEXT_FONT);
     for (const Character& character : CHARACTERS) {
         _display.LoadSprite(character.name, character.image);
         _display.LoadSprite(character.country, character.background);
@@ -116,7 +119,7 @@ void ClientCore::WaitingFrame(const std::string& text) {
         WINDOW_HEIGHT / 2 - 20, 30, palette::FOREGROUND);
     if (_scene == Scene::Leaving)
         return;
-    DrawCentered("ESC to cancel", WINDOW_HEIGHT / 2 + 30, 20, palette::DIM);
+    DrawHint("ESC to cancel", WINDOW_HEIGHT / 2 + 30, 20);
     if (!_display.IsKeyPressed(Key::Escape))
         return;
     if (_scene == Scene::Connecting) {
@@ -176,6 +179,22 @@ void ClientCore::DrawFace(std::size_t character, float x, float y, float size) {
     const int textSize = static_cast<int>(size / 2.f);
     _display.Print(initial, static_cast<int>(x + (size - static_cast<float>(_display.TextWidth(initial, textSize))) / 2.f),
         static_cast<int>(y + (size - static_cast<float>(textSize)) / 2.f), textSize, palette::BACKGROUND);
+}
+
+void ClientCore::DrawHint(const std::string& text, int y, int size) {
+    const int x = (WINDOW_WIDTH - _display.TextWidth(text, size)) / 2;
+    std::size_t start = 0;
+    while (start < text.size()) {
+        const std::size_t space = text.find(' ', start);
+        const std::size_t end = space == std::string::npos ? text.size() : space;
+        const std::string word = text.substr(start, end - start);
+        if (!word.empty()) {
+            const bool key = std::all_of(word.begin(), word.end(), [](char c) { return c >= 'A' && c <= 'Z'; });
+            const int offset = _display.TextWidth(text.substr(0, end), size) - _display.TextWidth(word, size);
+            _display.Print(word, x + offset, y, size, key ? palette::KEY : palette::DIM);
+        }
+        start = end + 1;
+    }
 }
 
 bool ClientCore::Button(const std::string& label, float x, float y, float width, float height) {
