@@ -28,22 +28,15 @@ static std::uint8_t WireVariant(ecs::Registry& registre, ecs::Entity entity, gam
     return kind == game::EntityKind::EnemyMissile ? 1 : 0;
 }
 
-ArgsList Room::SpawnArgs(ecs::Entity entity) {
-    const game::Position& position = registre.get<game::Position>(entity);
-    const game::Kind& kind = registre.get<game::Kind>(entity);
-    return {{
 Args Room::SpawnArgs(ecs::Entity entity) {
     const game::Position& position = registre.get<game::Position>(entity);
     const game::Kind& kind = registre.get<game::Kind>(entity);
-    const game::Player* player = registre.tryGet<game::Player>(entity);
     return {
         ecs::entityValue(entity),
         WireKind(kind.value),
         static_cast<std::int32_t>(position.x),
         static_cast<std::int32_t>(position.y),
         WireVariant(registre, entity, kind.value)
-    }};
-        static_cast<std::uint8_t>(player ? player->id - 1 : 0)
     };
 }
 
@@ -83,16 +76,13 @@ void Room::SyncEntities() {
             ++it;
             continue;
         }
-        Broadcast(Command::EntityDestroy, {{*it}});
-        _bossHealth.erase(*it);
-        it = _synced.erase(it);
-    }
-    SyncBossHealth();
         destroys.push_back({*it});
+        _bossHealth.erase(*it);
         it = _synced.erase(it);
     }
     Broadcast(Command::EntitySpawn, spawns);
     Broadcast(Command::EntityDestroy, destroys);
+    SyncBossHealth();
     if (++_tick % (TICK_RATE / ROOM_UPDATE_RATE) != 0)
         return;
     ArgsList updates;
