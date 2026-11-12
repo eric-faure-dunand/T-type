@@ -37,6 +37,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::InitialStateEnd, {Direction::ServerToClient, {ArgType::U32}}},
     // entity_id, x, y, color
     {Command::PlayerCreation, {Direction::ServerToClient, {ArgType::U32, ArgType::I32, ArgType::I32, ArgType::U8}}},
+    // entity_id, health_percent
+    {Command::BossHealth, {Direction::ServerToClient, {ArgType::U32, ArgType::U8}}},
     // reserved for reliable delivery, rejected in Part 1
     {Command::Ack, {Direction::Both, {}, false, true}},
     // error_code, rejected_command
