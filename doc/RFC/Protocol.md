@@ -46,6 +46,7 @@ Part 1 constraints:
 | `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
 | `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
 | `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | Tell a client which entity it controls |
+| `0x26` | `BOSS_HEALTH` | Server → Client | Room | 5 | Give the health of a boss |
 | `0x30` | `ACK` | Reserved | — | — | Future reliable delivery; not used in Part 1 |
 | `0x84` | `ERROR` | Both | Server, Room | 2 | Report a rejected datagram to its sender |
 
@@ -179,7 +180,9 @@ An update for an unknown entity must not implicitly create it. The client may de
 | 4 | `entity_kind` | uint8 | `0x01` player ship, `0x02` enemy, `0x03` projectile; others reserved |
 | 5 | `x` | int32 | Initial authoritative X coordinate |
 | 9 | `y` | int32 | Initial authoritative Y coordinate |
-| 13 | `color` | uint8 | Player character, `0` to `3` (see `CHOOSE_CHARACTER`), unique among the players of the room; it also gives the player colour. `0` and ignored for non-player entities |
+| 13 | `color` | uint8 | Variant, depends on `entity_kind`. Player: its character, `0` to `3` (see `CHOOSE_CHARACTER`), unique among the players of the room; it also gives the player colour. Enemy: its type, see below. Projectile: `0x00` fired by a player, `0x01` fired by an enemy |
+
+Enemy types: `0x00` ballon, `0x01` supporter, `0x02` defenseur, `0x03` scorpion, `0x04` harissa, `0x05` simit, `0x06` cay, `0x07` chat, `0x08` grognard, `0x09` sanglier, and the bosses `0x0A` El Diez, `0x0B` couscoussier, `0x0C` döner, `0x0D` Napoléon; others reserved. A client that does not know a value draws a generic enemy.
 
 `entity_kind` is a rendering/spawning hint, not a C++ class identity. The `entity_kind` values are the approved Part 1 wire-level baseline from issue #9; adding more kinds or ECS fields requires a documented protocol revision. A duplicate spawn for the same live entity must not create a second entity.
 
@@ -198,6 +201,15 @@ Unknown IDs may be ignored. The server **must not reuse an entity ID during a ga
 | 0 | `entity_count` | uint32 | Must match the begin marker and the number of collected unique entity IDs |
 
 A matching count alone does **not** prove the transfer is complete. The rules in §3.1 apply. Part 1 does not implement reliable snapshot transfer; explicit transfer IDs, retransmission of individual fragments, and robust recovery are Part 2 candidates.
+
+### `BOSS_HEALTH` (`0x26`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | The boss (an enemy whose type is `0x0A` or more, see `ENTITY_SPAWN`) |
+| 4 | `health_percent` | uint8 | Remaining health, `0` to `100` |
+
+Sent by the room to every client when a boss appears and each time its health percentage changes, and to a client after its initial state transfer for every live boss. It only drives the display: the boss disappears with `ENTITY_DESTROY` like any entity. A value for an unknown entity may be kept until its `ENTITY_SPAWN` arrives.
 
 ### `PLAYER_CREATION` (`0x25`)
 
