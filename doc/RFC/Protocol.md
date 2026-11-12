@@ -27,32 +27,6 @@ Part 1 constraints:
 
 ## 2. Command registry
 
-| Code | Command | Direction | Handled by | Size | Purpose |
-|---|---|---|---|---:|---|
-| `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | Ask to connect |
-| `0x02` | `CONNECT_ACCEPT` | Server → Client | Server, Room | 0 | Accept the connection |
-| `0x03` | `DISCONNECT` | Both | Server | 0 | End the connection to the server |
-| `0x04` | `CREATE_ROOM` | Client → Server | Server | 0 | Create a room and enter it |
-| `0x05` | `JOIN_ROOM` | Client → Server | Server | 4 | Ask to enter a room |
-| `0x06` | `ROOM_JOINED` | Server → Client | Server | 4 | Give the port of the room to connect to |
-| `0x07` | `LIST_ROOMS` | Client → Server | Server | 0 | Ask for the rooms with free slots |
-| `0x08` | `ROOM_LIST` | Server → Client | Server | 5 × N | List the rooms with free slots |
-| `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | Leave the room, giving the player entity |
-| `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | Submit input press/release events for a controlled entity |
-| `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | Ask to play a given character |
-| `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | Begin an initial state transfer |
-| `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 | Publish authoritative entity position |
-| `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 | Create or refresh an entity representation |
-| `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 | Remove an entity |
-| `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | End an initial state transfer |
-| `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | Tell a client which entity it controls |
-| `0x26` | `BOSS_HEALTH` | Server → Client | Room | 5 | Give the health of a boss |
-| `0x30` | `ACK` | Reserved | — | — | Future reliable delivery; not used in Part 1 |
-| `0x84` | `ERROR` | Both | Server, Room | 2 | Report a rejected datagram to its sender |
-
-In the *Direction* column, *Server* means the host side: the server socket or a room socket. The *Handled by* column says where the command is meant to be handled (§2.1). `CONNECT_REQUEST`, `CONNECT_ACCEPT` and `DISCONNECT` are handled by the network layer itself, except that a room ignores `DISCONNECT` (§2.1). Any other valid command for which the receiver has no handler is answered with `ERROR COMMAND_NOT_HANDLED`, except `ERROR`, which is never answered.
-
-Unknown and reserved command codes are rejected. All payload layouts below are exact: additional bytes are invalid.
 | Code | Command | Direction | Handled by | Size | Reliable | Purpose |
 |---|---|---|---|---:|:---:|---|
 | `0x01` | `CONNECT_REQUEST` | Client → Server | Server, Room | 0 | yes | Ask to connect |
@@ -66,12 +40,15 @@ Unknown and reserved command codes are rejected. All payload layouts below are e
 | `0x09` | `DISCONNECT_ROOM` | Client → Server | Room | 4 | yes | Leave the room, giving the player entity |
 | `0x10` | `PLAYER_INPUT` | Client → Server | Room | 6 | no | Submit input press/release events for a controlled entity |
 | `0x11` | `CHOOSE_CHARACTER` | Client → Server | Room | 5 | yes | Ask to play a given character |
+| `0x12` | `CHOOSE_LEVEL` | Client → Server | Room | 5 | yes | Ask the room to play a given level |
 | `0x20` | `INITIAL_STATE_BEGIN` | Server → Client | Room | 4 | yes | Begin an initial state transfer |
 | `0x21` | `ENTITY_UPDATE` | Server → Client | Room | 12 × N | no | Publish the authoritative positions of the entities |
 | `0x22` | `ENTITY_SPAWN` | Server → Client | Room | 14 × N | yes | Create or refresh entity representations |
 | `0x23` | `ENTITY_DESTROY` | Server → Client | Room | 4 × N | yes | Remove entities |
 | `0x24` | `INITIAL_STATE_END` | Server → Client | Room | 4 | yes | End an initial state transfer |
 | `0x25` | `PLAYER_CREATION` | Server → Client | Room | 13 | yes | Tell a client which entity it controls |
+| `0x26` | `BOSS_HEALTH` | Server → Client | Room | 5 | yes | Give the health of a boss |
+| `0x27` | `LEVEL_START` | Server → Client | Room | 1 | yes | Tell the clients which level the room plays |
 | `0x30` | `ACK` | Both | Network layer | 4 × N | no | Acknowledge reliable messages |
 | `0x31` | `RESEND` | Both | Network layer | 8 × N | no | Ask for the missing fragments of a reliable message |
 | `0x84` | `ERROR` | Both | Server, Room | 2 | no | Report a rejected datagram to its sender |
@@ -182,6 +159,15 @@ The server checks that the sender is allowed to control `entity_id`. Actions are
 
 Sent by a client after `PLAYER_CREATION`, when the character it picked differs from the one the room gave it. Never answered directly. If no other player of the room plays this character, the room gives it to the sender and sends `ENTITY_SPAWN` for the player entity to every client, with the new character in `color`. Otherwise the request is ignored and the player keeps its character. The room checks that the sender controls `entity_id`. The client sends it once and never repeats it, so the command is reliable (§3.2): a lost datagram is retransmitted by the network layer.
 
+### `CHOOSE_LEVEL` (`0x12`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `entity_id` | uint32 | Player entity controlled by the client in this room |
+| 4 | `level` | uint8 | `0x00` Argentine, `0x01` Tunisie, `0x02` Turquie, `0x03` Corse; others reserved |
+
+Sent by the client that created the room, after `PLAYER_CREATION`. A new room plays no level: players can move and shoot, but no enemy comes. The first valid `CHOOSE_LEVEL` loads the level and starts it, and the room answers every client with `LEVEL_START`. Later requests are ignored, as are requests from a sender that does not control `entity_id`, or for a reserved level. If the room cannot read the level file, it logs the error and keeps waiting.
+
 ### `INITIAL_STATE_BEGIN` (`0x20`)
 
 | Offset | Field | Type | Description |
@@ -244,6 +230,14 @@ A matching count alone does **not** prove the transfer is complete. The rules in
 | 4 | `health_percent` | uint8 | Remaining health, `0` to `100` |
 
 Sent by the room to every client when a boss appears and each time its health percentage changes, and to a client after its initial state transfer for every live boss. It only drives the display: the boss disappears with `ENTITY_DESTROY` like any entity. A value for an unknown entity may be kept until its `ENTITY_SPAWN` arrives.
+
+### `LEVEL_START` (`0x27`)
+
+| Offset | Field | Type | Description |
+|---:|---|---|---|
+| 0 | `level` | uint8 | The level the room plays, same values as `CHOOSE_LEVEL` |
+
+Sent by the room to every client when a level starts, and to a client after its initial state transfer if a level is already running. The client uses it to show the level's background and name.
 
 ### `PLAYER_CREATION` (`0x25`)
 

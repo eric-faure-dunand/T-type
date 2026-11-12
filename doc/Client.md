@@ -59,9 +59,11 @@ The current scene is also the connection state:
 |---|---|---|
 | `Menu` | none | ENTER → `Connecting` (not shown at startup when a valid IP is given) |
 | `Connecting` | server | `CONNECT_ACCEPT` → `Lobby`; `ERROR` or 3 s without answer → `Menu` |
-| `Lobby` | server | C / ENTER: `CREATE_ROOM` / `JOIN_ROOM` → `Joining`; ESC → `Menu` |
+| `Lobby` | server | C (create) / ENTER (join) → `Character`; ESC → `Menu` |
+| `Character` | server | ENTER: when joining, `JOIN_ROOM` → `Joining`; when creating → `Level`; ESC → `Lobby` |
+| `Level` | server | ENTER: `CREATE_ROOM` → `Joining`, then `CHOOSE_LEVEL` once in the room; ESC → `Character` |
 | `Joining` | server, then room | `ROOM_JOINED`: connect to the room port; room `CONNECT_ACCEPT` → `Game`; `ERROR` or 3 s → `Lobby` |
-| `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving` |
+| `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving`. When its own ship is destroyed, the client shows *Game over* over the game, which keeps running, and stops sending inputs; after 1 s, ENTER or ESC leaves the same way |
 | `Leaving` | server | `CONNECT_ACCEPT` → `Lobby`; 3 s → `Menu` |
 
 The client always uses the same UDP socket, as required by RFC §2.1: a room only accepts the endpoint announced by the server. Closing the window sends `DISCONNECT_ROOM` to the room and `DISCONNECT` to the server.
