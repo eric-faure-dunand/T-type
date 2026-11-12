@@ -18,8 +18,10 @@ ClientCore::ClientCore(std::string ip):
         _display.LoadSprite(character.name, character.image);
         _display.LoadSprite(character.country, character.background);
     }
-    _display.LoadSprite(ENEMY_SPRITE, ENEMY_IMAGE);
-    _display.LoadSprite(MISSILE_SPRITE, MISSILE_IMAGE);
+    for (const char *sprite : ENEMY_SPRITES)
+        LoadSprite(sprite);
+    for (const char *sprite : MISSILE_SPRITES)
+        LoadSprite(sprite);
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> x(0.f, static_cast<float>(WINDOW_WIDTH));
     std::uniform_real_distribution<float> y(0.f, static_cast<float>(WINDOW_HEIGHT));
@@ -153,6 +155,10 @@ void ClientCore::DrawMessage(float dt) {
 
 void ClientCore::DrawCentered(const std::string& text, int y, int size, Rgba color) {
     _display.Print(text, (WINDOW_WIDTH - _display.TextWidth(text, size)) / 2, y, size, color);
+}
+
+void ClientCore::LoadSprite(const char *name) {
+    _display.LoadSprite(name, std::string(ASSETS_DIR) + name + IMAGE_EXTENSION);
 }
 
 void ClientCore::DrawFace(std::size_t character, float x, float y, float size) {

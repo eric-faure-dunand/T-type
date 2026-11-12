@@ -9,8 +9,14 @@
 
 namespace r_type::client {
 
-static float WidthOf(std::uint8_t kind) {
-    switch (kind) {
+static bool IsBoss(const Appearance& look) {
+    return look.kind == KIND_ENEMY && look.color >= FIRST_BOSS;
+}
+
+static float WidthOf(const Appearance& look) {
+    if (IsBoss(look))
+        return BOSS_SIZE;
+    switch (look.kind) {
         case KIND_PLAYER:
             return 48.f;
         case KIND_ENEMY:
@@ -22,8 +28,10 @@ static float WidthOf(std::uint8_t kind) {
     }
 }
 
-static float HeightOf(std::uint8_t kind) {
-    switch (kind) {
+static float HeightOf(const Appearance& look) {
+    if (IsBoss(look))
+        return BOSS_SIZE;
+    switch (look.kind) {
         case KIND_PLAYER:
             return 24.f;
         case KIND_ENEMY:
@@ -35,12 +43,15 @@ static float HeightOf(std::uint8_t kind) {
     }
 }
 
-static const char *SpriteOf(std::uint8_t kind) {
-    switch (kind) {
+static const char *SpriteOf(const Appearance& look) {
+    if (look.color < 0)
+        return nullptr;
+    const auto variant = static_cast<std::size_t>(look.color);
+    switch (look.kind) {
         case KIND_ENEMY:
-            return ENEMY_SPRITE;
+            return variant < ENEMY_SPRITES.size() ? ENEMY_SPRITES[variant] : nullptr;
         case KIND_PROJECTILE:
-            return MISSILE_SPRITE;
+            return variant < MISSILE_SPRITES.size() ? MISSILE_SPRITES[variant] : nullptr;
         default:
             return nullptr;
     }
@@ -70,6 +81,7 @@ void ClientCore::GameFrame(float dt) {
 
     DrawBackground();
     DrawEntities();
+    DrawBossBar();
     _display.Print("ESC to leave the room", 10, 10, 18, palette::DIM);
     const int character = _world.PlayerColor();
     if (_world.Player() && character >= 0 && character < static_cast<int>(CHARACTERS.size()))
@@ -97,20 +109,33 @@ void ClientCore::DrawBackground() {
     _display.FillRect(0.f, 0.f, width, height, palette::BACKGROUND_SHADE);
 }
 
+void ClientCore::DrawBossBar() {
+    if (!_boss)
+        return;
+    const float width = 420.f;
+    const float height = 14.f;
+    const float x = (static_cast<float>(WINDOW_WIDTH) - width) / 2.f;
+    const float y = 42.f;
+    DrawCentered(_boss->name, 14, 22, palette::FOREGROUND);
+    _display.FillRect(x, y, width, height, palette::PANEL);
+    _display.FillRect(x, y, width * static_cast<float>(_boss->percent) / 100.f, height, palette::BOSS_HEALTH);
+    _display.OutlineRect(x, y, width, height, 2.f, palette::FOREGROUND);
+}
+
 void ClientCore::DrawEntities() {
     _world.Registry().each<NetIdentity, Transform, Appearance>(
         [this](NetIdentity&, Transform& pos, Appearance& look) {
             if (look.kind == KIND_PLAYER && look.color >= 0 && look.color < static_cast<int>(CHARACTERS.size())) {
-                const float size = WidthOf(look.kind);
-                DrawFace(static_cast<std::size_t>(look.color), pos.x, pos.y + (HeightOf(look.kind) - size) / 2.f, size);
+                const float size = WidthOf(look);
+                DrawFace(static_cast<std::size_t>(look.color), pos.x, pos.y + (HeightOf(look) - size) / 2.f, size);
                 return;
             }
-            const char *sprite = SpriteOf(look.kind);
+            const char *sprite = SpriteOf(look);
             if (sprite && _display.HasSprite(sprite)) {
-                _display.DrawSprite(sprite, pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind));
+                _display.DrawSprite(sprite, pos.x, pos.y, WidthOf(look), HeightOf(look));
                 return;
             }
-            _display.FillRect(pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind), ColorOf(look));
+            _display.FillRect(pos.x, pos.y, WidthOf(look), HeightOf(look), ColorOf(look));
         });
 }
 

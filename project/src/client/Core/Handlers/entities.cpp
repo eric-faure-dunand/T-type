@@ -55,6 +55,14 @@ void ClientCore::OnEntitySpawn(const ArgsList& args) {
         std::get<std::uint8_t>(args[0][4])};
     if (_destroyed.contains(entity.id))
         return;
+    const int boss = static_cast<int>(entity.color) - FIRST_BOSS;
+    if (entity.kind == KIND_ENEMY && boss >= 0 && boss < static_cast<int>(BOSS_NAMES.size())) {
+        const std::string name = BOSS_NAMES[static_cast<std::size_t>(boss)];
+        const bool known = _boss && _boss->id == entity.id;
+        if (!_transfer && !(known && _boss->name == name))
+            ShowMessage("BOSS : " + name);
+        _boss = BossBar{entity.id, name, known ? _boss->percent : 100};
+    }
     if (!_transfer) {
         _world.Spawn(entity);
         return;
@@ -81,9 +89,24 @@ void ClientCore::OnEntityDestroy(const ArgsList& args) {
         return;
     }
     _destroyed.insert(id);
+    if (_boss && _boss->id == id)
+        _boss.reset();
     if (_transfer)
         _transfer->entities.erase(id);
     _world.Destroy(id);
+}
+
+void ClientCore::OnBossHealth(const ArgsList& args) {
+    if (_scene != Scene::Game || args.size() != 1 || args[0].size() != 2)
+        return;
+    const std::uint32_t id = std::get<std::uint32_t>(args[0][0]);
+    if (_destroyed.contains(id))
+        return;
+    const int percent = std::min<int>(std::get<std::uint8_t>(args[0][1]), 100);
+    if (_boss && _boss->id == id)
+        _boss->percent = percent;
+    else
+        _boss = BossBar{id, "BOSS", percent};
 }
 
 }

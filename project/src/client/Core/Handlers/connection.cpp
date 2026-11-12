@@ -38,6 +38,7 @@ void ClientCore::RegisterHandlers() {
     _net.On(Command::EntitySpawn, [this](const Endpoint&, const ArgsList& args) {OnEntitySpawn(args);});
     _net.On(Command::EntityUpdate, [this](const Endpoint&, const ArgsList& args) {OnEntityUpdate(args);});
     _net.On(Command::EntityDestroy, [this](const Endpoint&, const ArgsList& args) {OnEntityDestroy(args);});
+    _net.On(Command::BossHealth, [this](const Endpoint&, const ArgsList& args) {OnBossHealth(args);});
 }
 
 void ClientCore::OnConnectAccept() {
