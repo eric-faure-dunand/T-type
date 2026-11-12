@@ -25,6 +25,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::PlayerInput, {Direction::ClientToServer, {ArgType::U32, ArgType::U8, ArgType::U8}}},
     // entity_id, character
     {Command::ChooseCharacter, {Direction::ClientToServer, {ArgType::U32, ArgType::U8}, false, false, true}},
+    // entity_id, level
+    {Command::ChooseLevel, {Direction::ClientToServer, {ArgType::U32, ArgType::U8}, false, false, true}},
     // entity_count
     {Command::InitialStateBegin, {Direction::ServerToClient, {ArgType::U32}, false, false, true}},
     // list of: entity_id, x, y
@@ -39,6 +41,8 @@ static const std::map<Command, CommandInfo> COMMANDS = {
     {Command::PlayerCreation, {Direction::ServerToClient, {ArgType::U32, ArgType::I32, ArgType::I32, ArgType::U8}, false, false, true}},
     // entity_id, health_percent
     {Command::BossHealth, {Direction::ServerToClient, {ArgType::U32, ArgType::U8}, false, false, true}},
+    // level
+    {Command::LevelStart, {Direction::ServerToClient, {ArgType::U8}, false, false, true}},
     {Command::Ack, {Direction::Both, {ArgType::U32}, true}},
     {Command::Resend, {Direction::Both, {ArgType::U32, ArgType::U32}, true}},
     // Internal secure handshake confirmation
