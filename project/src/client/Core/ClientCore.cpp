@@ -13,6 +13,7 @@ namespace r_type::client {
 
 ClientCore::ClientCore(std::string ip):
     _display(WINDOW_WIDTH, WINDOW_HEIGHT, "R-Type"), _net(Role::Client), _ip(std::move(ip)) {
+    _net.SetTrustedServerKey(SecurityConfig::trustedServerKey());
     RegisterHandlers();
     for (const Character& character : CHARACTERS) {
         _display.LoadSprite(character.name, character.image);

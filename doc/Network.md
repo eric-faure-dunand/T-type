@@ -7,7 +7,8 @@ This guide explains how to use the network code of the project: the shared UDP l
 | Path | Content |
 |---|---|
 | `project/include/shared/Network/protocol.hpp` | Constants, `Command`, `NetError`, `Role`, command registry (direction and argument schema of each command) |
-| `project/include/shared/Network/packet.hpp` | `Arg`, `Args`, `ArgsList`, `EncodePacket`, `DecodePacket` |
+| `project/include/shared/Network/packet.hpp` | `Arg`, `Args`, `ArgsList`, `Datagram`, `EncodeMessage`, `DecodePacket` |
+| `project/include/shared/Network/channel.hpp` | `Channel`: acknowledgements, retransmissions and reassembly for one peer (no socket inside) |
 | `project/include/shared/Network/network.hpp` | `UdpSocket`, `Endpoint`, `Handler`, `FallbackHandler` |
 | `project/include/shared/clock.hpp` | `Clock`, `TICK_RATE` |
 | `project/include/server/Core/core.hpp` | `Core`: server lobby, owns the rooms |
@@ -25,7 +26,7 @@ using Args = std::vector<Arg>;
 using ArgsList = std::vector<Args>;
 ```
 
-- Every command carries exactly one record, except `ROOM_LIST`, which carries 0 to N records.
+- Every command carries exactly one record, except the list commands: `ROOM_LIST`, `ENTITY_UPDATE`, `ENTITY_SPAWN` and `ENTITY_DESTROY` (0 to N records each), and `ACK` and `RESEND`, which only the network layer sends. Even a single entity is sent as a list of one record: the handlers of these commands walk all the records of `args`.
 - A command without arguments is sent with `{{}}` (one empty record).
 - The C++ type of each argument must match the schema: `42u` is a `uint32`, `-100` an `int32`, and a `uint8` must be written `std::uint8_t{1}`. A mismatch throws `Error`.
 
@@ -57,7 +58,7 @@ The second argument is the maximum number of connected clients, the third one ma
 | `Clients()`, `ClientCount()`, `HasClient(endpoint)` | Connected clients |
 | `GetMaxClients()`, `SetMaxClients(n)` | Limit; lowering it disconnects nobody, it only refuses newcomers with `ERROR FULL` |
 | `Announce(endpoint)` | Room only: allow this endpoint to connect |
-| `RemoveClient(endpoint)` | Remove a client without sending anything; callable from another thread (see below) |
+| `RemoveClient(endpoint)` | Remove a client without telling it, except for the `ACK`s still queued for it; callable from another thread (see below) |
 | `Disconnect(endpoint)` | Kick a client: remove it and send it `DISCONNECT` |
 
 ### Client side
@@ -75,6 +76,46 @@ The client only processes datagrams coming from its current host and ignores any
 ### Sending
 
 `SendTo(endpoint, command, args)` and `Send(command, args)` check the command direction and the arguments against the schema, and throw `Error` on a mistake or a system failure. In a handler on the server side, prefer a send that cannot stop the server (see `Core::Reply`).
+
+A list that does not fit in one datagram is split by `EncodeMessage` into fragments, sent one after the other. For a reliable command the receiver rebuilds the whole list: the sender passes the whole list, and the handler receives the whole list. A list of a command that is not reliable (`ENTITY_UPDATE`) is not rebuilt: the handler is called once per received datagram, with the records of this datagram, so a lost fragment only loses its own records. A list needing more than `MAX_FRAGMENTS` (32) datagrams makes the send throw `Error`. If the command is reliable, the datagrams are kept until the receiver acknowledges the message (next section).
+
+### Fragmentation and reliable delivery
+
+The wire rules are in RFC [Protocol.md §3.2](RFC/Protocol.md#32-fragmentation-and-reliable-delivery). In the code:
+
+| What | Where |
+|---|---|
+| Split a message into datagrams, each with the `Message id` of the message and its fragment index | `EncodeMessage` (`packet.cpp`) |
+| `reliable` flag of each command | `CommandInfo::reliable`, registry in `protocol.cpp` |
+| Keep the sent datagrams, queue the `ACK`s, reassemble fragments, ignore duplicates, ask for missing fragments | `Channel` (`channel.cpp`), one per peer, owned by `UdpSocket` |
+| Send and receive the datagrams, call the `Channel` | `UdpSocket` |
+
+`Channel` never touches a socket and takes the time as an argument. It only returns what must be sent, so its logic can be tested alone. `UdpSocket` creates a `Channel` the first time it sends a reliable message to an endpoint, or receives a reliable or fragmented message from a connected endpoint, and removes it when the endpoint leaves the list of clients, when it has nothing left to do, or on `Close()`.
+
+`Poll()` does the whole job: after processing the received datagrams, it sends the pending `ACK`s and `RESEND`s and retransmits the messages that were not acknowledged in time. A socket that is not polled regularly neither acknowledges nor retransmits.
+
+| Constant | Value | Where |
+|---|---|---|
+| Wait for an `ACK` before retransmitting | 200 ms | `RESEND_DELAY`, `channel.hpp` |
+| Wait before asking for a missing fragment | 50 ms | `FRAGMENT_REQUEST_DELAY`, `channel.hpp` |
+| Retransmissions or `RESEND`s before giving up | 5 | `MAX_RESENDS`, `channel.hpp` |
+| Incomplete messages kept per peer | 8 | `MAX_PARTIAL_MESSAGES`, `channel.hpp` |
+| Message ids remembered per peer, to ignore duplicates | 1024 | `SEEN_WINDOW`, `channel.hpp` |
+| Fragments per message | 32 | `MAX_FRAGMENTS`, `protocol.hpp` |
+
+What the game must know:
+
+- A reliable message is delivered once, even if the sender retransmitted it. It is not delivered in order: a retransmitted message arrives after the ones sent later.
+- A list that is not reliable can reach the handler in several calls, one per datagram, and some of its records can be lost. A handler of `ENTITY_UPDATE` must not expect the records of all the entities in one call.
+- After `MAX_RESENDS` retransmissions the message is forgotten without notice. The game does not learn that the peer is unreachable.
+- A reliable message refused by the network layer (`NOT_CONNECTED`, `FULL`, ...) is acknowledged anyway, at once and without keeping any state about the sender, besides receiving its `ERROR`. The sender stops retransmitting.
+- Every command is reliable except `PLAYER_INPUT`, `ENTITY_UPDATE`, `ERROR`, `ACK` and `RESEND`. The connection handshake (`CONNECT_REQUEST`, `CONNECT_ACCEPT`) and `DISCONNECT` are reliable.
+
+To make a command reliable, set the fifth field of its entry in `protocol.cpp` to `true` and mark it in the RFC table:
+
+```cpp
+{Command::MyCommand, {Direction::ServerToClient, {ArgType::U32}, false, false, true}},   // schema, list, reserved, reliable
+```
 
 ### Receiving: handlers
 
@@ -95,6 +136,7 @@ net.On(Command::JoinRoom, [&](const Endpoint& from, const ArgsList& args) {
 | `DISCONNECT` (server) | Remove the sender. Ignored by a room. |
 | `DISCONNECT` (client) | `IsConnected()` becomes `false` |
 
+- `ACK` and `RESEND` are consumed by the network layer: no handler is called and they are never answered.
 - Any other valid command without handler: the fallback (`SetFallback`, useful for debugging) is called if it is set, then the sender receives `ERROR COMMAND_NOT_HANDLED`. An `ERROR` is never answered.
 - Except for `CONNECT_REQUEST`, a host only processes datagrams from connected clients; others receive `ERROR NOT_CONNECTED`.
 - Invalid datagrams are answered with an `ERROR` according to RFC §5, and never throw.
@@ -118,7 +160,7 @@ When a `UdpSocket` is destroyed with its socket open, it says goodbye before clo
 | Server or room | `DISCONNECT` to every connected client |
 | Client | `DISCONNECT` to the server given to its first `Connect`, even when its current host is a room; the `Core` then removes it from its room, which is notified as above |
 
-A client ignores a `DISCONNECT` that does not come from its current host: when the server stops, a client in a room is warned by its room, which `Core` destroys before the server socket. The destructor never calls the local handlers, since the objects they use may already be destroyed, and never throws.
+A client ignores a `DISCONNECT` that does not come from its current host: when the server stops, a client in a room is warned by its room, which `Core` destroys before the server socket. The destructor sends each `DISCONNECT` once, since it cannot retransmit it. It never calls the local handlers, since the objects they use may already be destroyed, and never throws.
 
 ### Poll and threads
 
@@ -157,6 +199,19 @@ Refusals are sent as `ERROR` with `ROOM_NOT_FOUND`, `ALREADY_IN_ROOM` or `TOO_MA
 ## Room
 
 A `Room` has its own socket (port chosen by the system, `Port()`), its own thread (`Start()`, `Stop()`) and its own `Clock`. It registers a `DISCONNECT_ROOM` handler that removes the sender with `RemoveClient`, which then calls the `DISCONNECT` handlers.
+
+The room sends the state of the game to its clients with lists, built once and sent to each client, instead of one datagram per entity and per client:
+
+| Command | When | Content |
+|---|---|---|
+| `ENTITY_SPAWN`, `ENTITY_DESTROY` | Every tick | The walk of `SyncEntities` over the entities that have a `Kind` and a `Position` finds the ones not yet synchronised (`_synced`) and the ones that disappeared; the spawns and the destroys of the tick are each gathered in one list, and `Broadcast` sends it once to every client |
+| `ENTITY_UPDATE` | Every `TICK_RATE / ROOM_UPDATE_RATE` ticks, i.e. 20 Hz | The same walk gathers the positions of all the entities in one list, sent to every client by `Broadcast` |
+| `ENTITY_SPAWN` (initial state) | When a client joins | `SendInitialState` walks the ECS once and sends all the entities in one list, between `INITIAL_STATE_BEGIN` and `INITIAL_STATE_END` |
+| `ENTITY_SPAWN` (new player) | When a client joins | `BroadcastPlayerSpawn` sends the new player to the others, as a list of one record: the player is already in `_synced`, so `SyncEntities` does not send it again |
+
+`Broadcast` and `SendInitialState` go through `SendList`, which cuts a list into messages of at most `MAX_RECORDS_PER_MESSAGE = 2048` records. A message is limited to 32 fragments, that is 2688 `ENTITY_SPAWN`, 3136 `ENTITY_UPDATE` or 9440 `ENTITY_DESTROY` records, and a room can hold up to `kMaxEntities` (5254) entities: without this cut, `SendTo` would throw in the room thread for a very full room. The clients accept the pieces one after the other (the initial state counts its records in `INITIAL_STATE_BEGIN`).
+
+To replicate a new kind of event, gather its records in a list during the walk of `SyncEntities` and send it with `Broadcast`: never send one datagram per entity inside a loop over the clients.
 
 Game code plugs into the room by registering handlers on `net` in the `Room` constructor, before `Start()`:
 
@@ -216,9 +271,13 @@ If the room answers `ERROR FULL` to the `CONNECT_REQUEST`, connect back to the s
 | Rooms | 12 | `DEFAULT_MAX_ROOMS`, `core.hpp` |
 | Room without client | destroyed after 1 minute | `ROOM_IDLE_TIMEOUT`, `room.hpp` |
 | Tick rate | 120 Hz | `TICK_RATE`, `clock.hpp` |
+| `ENTITY_UPDATE` rate | 20 Hz | `ROOM_UPDATE_RATE`, `room.hpp` |
+| Reliability delays and limits | see the table above | `channel.hpp` |
 
 ## Known limitations
 
 - A client that crashes or is killed before its `UdpSocket` destructor runs never sends `DISCONNECT`, so it is never removed: there is no inactivity timeout yet.
-- No reliable delivery, no ordering, no fragmentation (RFC §6).
+- Only the commands flagged reliable are acknowledged and retransmitted, and a message is abandoned after `MAX_RESENDS` retransmissions. Messages are never ordered, and only lists are fragmented (RFC §6).
+- The client still gives up on its own timeout (`CONNECT_LIMIT`, 3 s) when the server does not answer, after the 5 retransmissions of `CONNECT_REQUEST` (about 1 s).
+- The ids a socket remembers are forgotten when the peer is removed or on `Close()`. A peer that restarts under the same endpoint without having been removed counts again from 1, and its first messages are taken for duplicates.
 - The `Core` and room loops do not sleep and use one CPU core each.

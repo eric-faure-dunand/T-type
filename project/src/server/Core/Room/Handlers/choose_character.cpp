@@ -28,7 +28,7 @@ void Room::HandleChooseCharacter(const Endpoint& from, const ArgsList& args) {
     if (taken)
         return;
     registre.get<game::Player>(entity).id = character + 1;
-    Broadcast(Command::EntitySpawn, SpawnArgs(entity));
+    Broadcast(Command::EntitySpawn, {SpawnArgs(entity)});
 }
 
 }

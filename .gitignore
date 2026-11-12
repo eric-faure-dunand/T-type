@@ -4,3 +4,14 @@ build/
 r-type_server
 cmake.log
 r-type_client
+
+
+.local/
+
+# Generated test executables
+*_tests
+
+# Local VS Code configuration
+.vscode/
+
+/build-release/

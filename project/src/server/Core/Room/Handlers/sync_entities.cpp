@@ -32,31 +32,50 @@ ArgsList Room::SpawnArgs(ecs::Entity entity) {
     const game::Position& position = registre.get<game::Position>(entity);
     const game::Kind& kind = registre.get<game::Kind>(entity);
     return {{
+Args Room::SpawnArgs(ecs::Entity entity) {
+    const game::Position& position = registre.get<game::Position>(entity);
+    const game::Kind& kind = registre.get<game::Kind>(entity);
+    const game::Player* player = registre.tryGet<game::Player>(entity);
+    return {
         ecs::entityValue(entity),
         WireKind(kind.value),
         static_cast<std::int32_t>(position.x),
         static_cast<std::int32_t>(position.y),
         WireVariant(registre, entity, kind.value)
     }};
+        static_cast<std::uint8_t>(player ? player->id - 1 : 0)
+    };
 }
 
-void Room::Broadcast(Command command, const ArgsList& args) {
+void Room::SendList(const Endpoint& client, Command command, const ArgsList& records) {
+    for (std::size_t first = 0; first < records.size(); first += MAX_RECORDS_PER_MESSAGE) {
+        const std::size_t last = std::min(records.size(), first + MAX_RECORDS_PER_MESSAGE);
+        net.SendTo(client, command, ArgsList(records.begin() + static_cast<std::ptrdiff_t>(first),
+            records.begin() + static_cast<std::ptrdiff_t>(last)));
+    }
+}
+
+void Room::Broadcast(Command command, const ArgsList& records) {
+    if (records.empty())
+        return;
     for (const auto& [client, entity] : _players) {
         if (!net.HasClient(client))
             continue;
-        net.SendTo(client, command, args);
+        SendList(client, command, records);
     }
 }
 
 void Room::SyncEntities() {
     std::unordered_set<std::uint32_t> alive;
+    ArgsList spawns;
+    ArgsList destroys;
 
     registre.each<game::Kind, game::Position>(
-        [this, &alive](ecs::Entity entity, const game::Kind&, const game::Position&) {
+        [this, &alive, &spawns](ecs::Entity entity, const game::Kind&, const game::Position&) {
             const std::uint32_t id = ecs::entityValue(entity);
             alive.insert(id);
             if (_synced.insert(id).second)
-                Broadcast(Command::EntitySpawn, SpawnArgs(entity));
+                spawns.push_back(SpawnArgs(entity));
         }
     );
     for (auto it = _synced.begin(); it != _synced.end();) {
@@ -69,17 +88,24 @@ void Room::SyncEntities() {
         it = _synced.erase(it);
     }
     SyncBossHealth();
+        destroys.push_back({*it});
+        it = _synced.erase(it);
+    }
+    Broadcast(Command::EntitySpawn, spawns);
+    Broadcast(Command::EntityDestroy, destroys);
     if (++_tick % (TICK_RATE / ROOM_UPDATE_RATE) != 0)
         return;
+    ArgsList updates;
     registre.each<game::Kind, game::Position>(
-        [this](ecs::Entity entity, const game::Kind&, const game::Position& position) {
-            Broadcast(Command::EntityUpdate, {{
+        [&updates](ecs::Entity entity, const game::Kind&, const game::Position& position) {
+            updates.push_back({
                 ecs::entityValue(entity),
                 static_cast<std::int32_t>(position.x),
                 static_cast<std::int32_t>(position.y)
-            }});
+            });
         }
     );
+    Broadcast(Command::EntityUpdate, updates);
 }
 
 void Room::SyncBossHealth() {
