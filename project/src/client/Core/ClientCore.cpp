@@ -15,8 +15,12 @@ ClientCore::ClientCore(std::string ip):
     _display(WINDOW_WIDTH, WINDOW_HEIGHT, "R-Type"), _net(Role::Client), _ip(std::move(ip)) {
     _net.SetTrustedServerKey(SecurityConfig::trustedServerKey());
     RegisterHandlers();
-    for (const Character& character : CHARACTERS)
+    for (const Character& character : CHARACTERS) {
         _display.LoadSprite(character.name, character.image);
+        _display.LoadSprite(character.country, character.background);
+    }
+    _display.LoadSprite(ENEMY_SPRITE, ENEMY_IMAGE);
+    _display.LoadSprite(MISSILE_SPRITE, MISSILE_IMAGE);
     std::mt19937 rng(std::random_device{}());
     std::uniform_real_distribution<float> x(0.f, static_cast<float>(WINDOW_WIDTH));
     std::uniform_real_distribution<float> y(0.f, static_cast<float>(WINDOW_HEIGHT));

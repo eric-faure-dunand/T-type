@@ -1,0 +1,15 @@
+{
+    "name": "Sidi Bou Saïd",
+    "country": "tunisie",
+    "owner": "Soha",
+    "background": "tunisie",
+    "waves": [
+        { "time": 1,  "enemy": "scorpion",  "pattern": "straight",  "count": 5, "spacing": 0.8 },
+        { "time": 7,  "enemy": "harissa",   "pattern": "sine",      "count": 6, "spacing": 0.5 },
+        { "time": 13, "enemy": "scorpion",  "pattern": "zigzag",    "count": 6, "spacing": 0.45 },
+        { "time": 20, "enemy": "harissa",   "pattern": "dive",      "count": 7, "spacing": 0.4 },
+        { "time": 27, "enemy": "scorpion",  "pattern": "sine",      "count": 8, "spacing": 0.35 },
+        { "time": 33, "enemy": "harissa",   "pattern": "bounce",    "count": 6, "spacing": 0.4 }
+    ],
+    "boss": { "type": "couscoussier", "health": 90, "time": 40 }
+}

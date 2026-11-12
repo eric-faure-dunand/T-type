@@ -35,6 +35,17 @@ static float HeightOf(std::uint8_t kind) {
     }
 }
 
+static const char *SpriteOf(std::uint8_t kind) {
+    switch (kind) {
+        case KIND_ENEMY:
+            return ENEMY_SPRITE;
+        case KIND_PROJECTILE:
+            return MISSILE_SPRITE;
+        default:
+            return nullptr;
+    }
+}
+
 static Rgba ColorOf(const Appearance& look) {
     switch (look.kind) {
         case KIND_PLAYER:
@@ -57,6 +68,7 @@ void ClientCore::GameFrame(float dt) {
         SetHeld(held);
     ResendInputs(dt);
 
+    DrawBackground();
     DrawEntities();
     _display.Print("ESC to leave the room", 10, 10, 18, palette::DIM);
     const int character = _world.PlayerColor();
@@ -72,12 +84,30 @@ void ClientCore::GameFrame(float dt) {
     }
 }
 
+void ClientCore::DrawBackground() {
+    const int character = _world.PlayerColor();
+    if (character < 0 || character >= static_cast<int>(CHARACTERS.size()))
+        return;
+    const char *country = CHARACTERS[static_cast<std::size_t>(character)].country;
+    if (!_display.HasSprite(country))
+        return;
+    const auto width = static_cast<float>(WINDOW_WIDTH);
+    const auto height = static_cast<float>(WINDOW_HEIGHT);
+    _display.DrawSprite(country, 0.f, 0.f, width, height);
+    _display.FillRect(0.f, 0.f, width, height, palette::BACKGROUND_SHADE);
+}
+
 void ClientCore::DrawEntities() {
     _world.Registry().each<NetIdentity, Transform, Appearance>(
         [this](NetIdentity&, Transform& pos, Appearance& look) {
             if (look.kind == KIND_PLAYER && look.color >= 0 && look.color < static_cast<int>(CHARACTERS.size())) {
                 const float size = WidthOf(look.kind);
                 DrawFace(static_cast<std::size_t>(look.color), pos.x, pos.y + (HeightOf(look.kind) - size) / 2.f, size);
+                return;
+            }
+            const char *sprite = SpriteOf(look.kind);
+            if (sprite && _display.HasSprite(sprite)) {
+                _display.DrawSprite(sprite, pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind));
                 return;
             }
             _display.FillRect(pos.x, pos.y, WidthOf(look.kind), HeightOf(look.kind), ColorOf(look));
