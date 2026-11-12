@@ -11,5 +11,5 @@
         { "time": 27, "enemy": "ballon",    "pattern": "dive",      "count": 6, "spacing": 0.5 },
         { "time": 32, "enemy": "supporter", "pattern": "sine",      "count": 8, "spacing": 0.35 }
     ],
-    "boss": { "type": "eldiez", "health": 90, "time": 40 }
+    "boss": { "type": "eldiez", "health": 50, "time": 40 }
 }
