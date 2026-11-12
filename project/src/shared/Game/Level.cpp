@@ -90,4 +90,11 @@ LevelData loadLevel(const std::string &path)
     return parseLevel(text);
 }
 
+std::string levelPath(std::size_t level)
+{
+    if (level >= kLevelNames.size())
+        throw ::Error("Level: unknown level " + std::to_string(level) + ".");
+    return std::string(kLevelDirectory) + kLevelNames[level] + kLevelExtension;
+}
+
 }

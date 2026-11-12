@@ -18,6 +18,10 @@ constexpr float kDespawnMargin = 100.f;
 
 constexpr int kCharacterCount = 4;
 
+constexpr const char *kLevelDirectory = "assets/levels/";
+constexpr const char *kLevelExtension = ".json";
+constexpr std::array<const char *, 4> kLevelNames = {"argentine", "tunisie", "turquie", "corse"};
+
 constexpr float kPlayerSpeed = 320.f;
 constexpr float kPlayerWidth = 48.f;
 constexpr float kPlayerHeight = 24.f;
