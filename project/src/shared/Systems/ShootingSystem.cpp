@@ -30,10 +30,15 @@ void shootingSystem(ecs::Registry &r, float dt)
             return;
         weapon.cooldown = 1.f / weapon.fireRate;
         const float y = pos.y + (box.height - kMissileHeight) / 2.f;
-        if (isPlayer)
+        if (isPlayer) {
             shots.push_back({pos.x + box.width, y, weapon.projectileSpeed, weapon.damage, true});
-        else
+        } else if (r.has<Boss>(e)) {
+            for (const float cannon : {kBossCannonTop, kBossCannonBottom})
+                shots.push_back({pos.x - kMissileWidth, pos.y + box.height * cannon - kMissileHeight / 2.f,
+                    -weapon.projectileSpeed, weapon.damage, false});
+        } else {
             shots.push_back({pos.x - kMissileWidth, y, -weapon.projectileSpeed, weapon.damage, false});
+        }
     });
     for (const Shot &s : shots)
         spawnMissile(r, s.x, s.y, s.speedX, s.damage, s.fromPlayer);
