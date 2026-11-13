@@ -45,6 +45,8 @@ The client is single-threaded. `ClientCore` owns the window, the socket and the 
 | `project/src/client/Core/Handlers/entities.cpp` | `PLAYER_CREATION`, initial state, `ENTITY_SPAWN` / `UPDATE` / `DESTROY` |
 | `project/src/client/Core/Scenes/menu.cpp` | IP input screen, *R-TYPE WORLD TOUR* title, country slideshow |
 | `project/src/client/Core/Scenes/lobby.cpp` | Room list, create / join |
+| `project/src/client/Core/Scenes/level.cpp` | Reads the level files, level screen |
+| `project/src/client/Core/Scenes/options.cpp` | Accessibility options, saved in `r-type_settings.json` |
 | `project/src/client/Core/Scenes/game.cpp` | Draws the entities, sends the inputs |
 | `project/include/client/World/World.hpp`, `src/client/World/World.cpp` | Client copy of the game in the ECS `Registry`, entity kinds |
 | `project/include/client/Display/Display.hpp`, `src/client/Display/Display.cpp` | Window, drawing, fonts, input. **The only file that includes Raylib.** |
@@ -65,6 +67,7 @@ The current scene is also the connection state:
 | `Joining` | server, then room | `ROOM_JOINED`: connect to the room port; room `CONNECT_ACCEPT` → `Game`; `ERROR` or 3 s → `Lobby` |
 | `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving`. When its own ship is destroyed, the client shows *Game over* over the game, which keeps running, and stops sending inputs; after 1 s, ENTER or ESC leaves the same way |
 | `Leaving` | server | `CONNECT_ACCEPT` → `Lobby`; 3 s → `Menu` |
+| `Options` | same as before | Opened with O from `Menu` or `Lobby`; ESC goes back to that scene. While opened from the lobby, the client keeps refreshing the room list so the server does not drop it |
 
 The client always uses the same UDP socket, as required by RFC §2.1: a room only accepts the endpoint announced by the server. Closing the window sends `DISCONNECT_ROOM` to the room and `DISCONNECT` to the server.
 
@@ -75,6 +78,7 @@ Everything can be done with the keyboard only (arrows, ENTER, ESC, C, R); the mo
 - **Fonts**: Russo One for the title, Exo 2 for every other text, both in `assets/fonts` (SIL Open Font License, the license text is next to each `.ttf`). `Display::LoadFont` loads ASCII, Latin-1 and Latin Extended-A, so French and Turkish accents are drawn. `Display::UseFont` sets the font used by `Print` when no font is given. If a font file is missing, Raylib's default font is used.
 - **Text** is drawn with a small dark shadow, so it stays readable over the photos.
 - **Hints** (`DrawHint`): in a line like `ENTER to connect  -  ESC to quit`, the words in capitals are the keys and are drawn in yellow.
+- **Game background**: the photo of the level scrolls slowly to the left (`BACKGROUND_SCROLL`, 15 px/s), every other copy mirrored so the seam does not show, darkened, with the starfield in front.
 - **Menu**: the four country backgrounds change every 3 s (`MENU_SLIDE`) with a 1 s fade (`MENU_FADE`), darkened, with the stars in front. The IP field and the *Connect* button use a gradient of the four player colours. In a game, the background is the country of the level and does not change.
 
 ## Game data
@@ -87,12 +91,13 @@ Everything can be done with the keyboard only (arrows, ENTER, ESC, C, R); the mo
 
 ## Inputs
 
-Arrows move, SPACE fires. Keys are mapped to actions by the `BINDINGS` table in `ClientCore.hpp`:
+Arrows or WASD move (ZQSD on a French keyboard: Raylib reads the key position, not the letter), SPACE fires, F switches auto-fire. Keys are mapped to actions by the `BINDINGS` table in `ClientCore.hpp`:
 
 ```cpp
-constexpr std::array<Binding, 5> BINDINGS = {{
-    {Key::Up, Action::Up}, {Key::Down, Action::Down}, {Key::Left, Action::Left},
-    {Key::Right, Action::Right}, {Key::Space, Action::Fire},
+constexpr std::array<Binding, 9> BINDINGS = {{
+    {Key::Up, Action::Up}, {Key::Down, Action::Down}, {Key::Left, Action::Left}, {Key::Right, Action::Right},
+    {Key::W, Action::Up}, {Key::S, Action::Down}, {Key::A, Action::Left}, {Key::D, Action::Right},
+    {Key::Space, Action::Fire},
 }};
 ```
 

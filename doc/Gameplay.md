@@ -119,7 +119,7 @@ addGameplaySystems(systems, seed, loadLevel("assets/levels/turquie.json"));
 
 After each step, the server compares the entities with what the clients already know: a new entity is sent with `ENTITY_SPAWN`, a missing one with `ENTITY_DESTROY`, and positions with `ENTITY_UPDATE` (20 times per second).
 
-A new room plays no level: players can move and shoot, but no enemy comes. The client that created the room sends `CHOOSE_LEVEL`; the room then loads `assets/levels/<country>.json` (`levelPath()`, the names are in `kLevelNames`), rebuilds its systems with `addGameplaySystems()`, and tells every client with `LEVEL_START`. If the file cannot be read, the room logs the error and keeps waiting.
+A new room plays no level: players can move and shoot, but no enemy comes. The client that created the room sends `CHOOSE_LEVEL`; the room then loads the matching file of `levelFiles()` (`levelPath()`), rebuilds its systems with `addGameplaySystems()`, and tells every client with `LEVEL_START`. If the file cannot be read, the room logs the error and keeps waiting.
 
 ## Entity kinds on the network
 
@@ -137,6 +137,16 @@ The last field of `ENTITY_SPAWN` (`color`) tells the client which sprite to draw
 ## Levels
 
 A level is a JSON file in `assets/levels/`. `loadLevel()` reads it into a `LevelData`, and the `WaveSystem` plays it.
+
+`levelFiles()` lists every `.json` file of `assets/levels/`, sorted by file name (at most 256). A level's number, sent in `CHOOSE_LEVEL` and `LEVEL_START`, is its place in that list: with the files shipped, `0` argentine, `1` corse, `2` tunisie, `3` turquie. The server and the clients read the same folder, so they must have the same level files.
+
+### How to add a level
+
+No C++ and no recompiling:
+
+1. Copy a file of `assets/levels/`, for example `turquie.json`, to `assets/levels/<name>.json`.
+2. Change `name`, `country`, the `waves` and the `boss`. `background` is the name of a picture of `assets/backgrounds/` without `.png` (1280 × 720 looks best); you can add a new one.
+3. Start the server and the client: the level appears on the level screen, after the others in file name order. If the file has a mistake, the client shows it with a `?` and prints the error, and the server refuses to start it and logs the error.
 
 ```json
 {
