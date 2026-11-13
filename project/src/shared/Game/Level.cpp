@@ -90,11 +90,25 @@ LevelData loadLevel(const std::string &path)
     return parseLevel(text);
 }
 
+std::vector<std::string> levelFiles()
+{
+    std::vector<std::string> files;
+    std::error_code error;
+    for (const auto &entry : std::filesystem::directory_iterator(kLevelDirectory, error))
+        if (entry.is_regular_file() && entry.path().extension() == kLevelExtension)
+            files.push_back(entry.path().generic_string());
+    std::sort(files.begin(), files.end());
+    if (files.size() > kMaxLevels)
+        files.resize(kMaxLevels);
+    return files;
+}
+
 std::string levelPath(std::size_t level)
 {
-    if (level >= kLevelNames.size())
+    const std::vector<std::string> files = levelFiles();
+    if (level >= files.size())
         throw ::Error("Level: unknown level " + std::to_string(level) + ".");
-    return std::string(kLevelDirectory) + kLevelNames[level] + kLevelExtension;
+    return files[level];
 }
 
 }

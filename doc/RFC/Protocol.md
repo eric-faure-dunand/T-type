@@ -164,9 +164,9 @@ Sent by a client after `PLAYER_CREATION`, when the character it picked differs f
 | Offset | Field | Type | Description |
 |---:|---|---|---|
 | 0 | `entity_id` | uint32 | Player entity controlled by the client in this room |
-| 4 | `level` | uint8 | `0x00` Argentine, `0x01` Tunisie, `0x02` Turquie, `0x03` Corse; others reserved |
+| 4 | `level` | uint8 | Place of the level in the list of `assets/levels/*.json` sorted by file name (shipped files: `0x00` argentine, `0x01` corse, `0x02` tunisie, `0x03` turquie). Values past the end of the list are ignored |
 
-Sent by the client that created the room, after `PLAYER_CREATION`. A new room plays no level: players can move and shoot, but no enemy comes. The first valid `CHOOSE_LEVEL` loads the level and starts it, and the room answers every client with `LEVEL_START`. Later requests are ignored, as are requests from a sender that does not control `entity_id`, or for a reserved level. If the room cannot read the level file, it logs the error and keeps waiting.
+Sent by the client that created the room, after `PLAYER_CREATION`. A new room plays no level: players can move and shoot, but no enemy comes. The first valid `CHOOSE_LEVEL` loads the level and starts it, and the room answers every client with `LEVEL_START`. Later requests are ignored, as are requests from a sender that does not control `entity_id`, or for a level that does not exist. The server and the clients must ship the same level files. If the room cannot read the level file, it logs the error and keeps waiting.
 
 ### `INITIAL_STATE_BEGIN` (`0x20`)
 

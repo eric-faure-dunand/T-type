@@ -11,7 +11,10 @@
     #include <algorithm>
     #include <array>
     #include <cctype>
+    #include <cmath>
     #include <cstdint>
+    #include <fstream>
+    #include <iostream>
     #include <map>
     #include <optional>
     #include <set>
@@ -22,6 +25,7 @@
     #include "network.hpp"
     #include "Display.hpp"
     #include "World.hpp"
+    #include "Level.hpp"
     #include "sig.hpp"
     #include "Encryption/SecurityConfig.hpp"
 
@@ -41,6 +45,10 @@ constexpr float MESSAGE_DURATION = 4.f;
 constexpr float GAME_OVER_DELAY = 1.f;
 constexpr float MENU_SLIDE = 3.f;
 constexpr float MENU_FADE = 1.f;
+constexpr float BACKGROUND_SCROLL = 15.f;
+constexpr std::size_t LEVEL_CARDS = 4;
+constexpr const char *SETTINGS_FILE = "r-type_settings.json";
+constexpr const char *BACKGROUNDS_DIR = "backgrounds/";
 constexpr const char *WINDOW_TITLE = "R-Type World Tour";
 constexpr const char *TITLE_FONT = "title";
 constexpr const char *TEXT_FONT = "text";
@@ -60,12 +68,37 @@ struct Binding {
     Action action;
 };
 
-constexpr std::array<Binding, 5> BINDINGS = {{
+constexpr std::array<Binding, 9> BINDINGS = {{
     {Key::Up, Action::Up},
     {Key::Down, Action::Down},
     {Key::Left, Action::Left},
     {Key::Right, Action::Right},
+    {Key::W, Action::Up},
+    {Key::S, Action::Down},
+    {Key::A, Action::Left},
+    {Key::D, Action::Right},
     {Key::Space, Action::Fire},
+}};
+
+struct Settings {
+    bool autoFire = false;
+    bool reduceMotion = false;
+    bool darkBackgrounds = false;
+};
+
+struct OptionInfo {
+    const char *name;
+    const char *help;
+    const char *key;
+    bool Settings::*value;
+};
+
+constexpr std::array<OptionInfo, 3> OPTIONS = {{
+    {"Auto-fire", "Your ship fires on its own: no need to hold SPACE", "auto_fire", &Settings::autoFire},
+    {"Reduce motion", "Stops the scrolling background, the stars and the menu slideshow", "reduce_motion",
+        &Settings::reduceMotion},
+    {"Darker backgrounds", "Darkens the photos so the ships and the text stand out", "dark_backgrounds",
+        &Settings::darkBackgrounds},
 }};
 
 namespace palette {
@@ -81,6 +114,7 @@ constexpr Rgba ENEMY{190, 33, 55, 255};
 constexpr Rgba PROJECTILE{253, 249, 0, 255};
 constexpr Rgba OTHER{130, 130, 130, 255};
 constexpr Rgba BACKGROUND_SHADE{0, 0, 0, 110};
+constexpr Rgba DARK_SHADE{0, 0, 0, 200};
 constexpr Rgba BOSS_HEALTH{230, 60, 60, 255};
 constexpr Rgba GAME_OVER_SHADE{0, 0, 0, 150};
 constexpr Rgba MENU_SHADE{8, 8, 20, 140};
@@ -104,16 +138,11 @@ constexpr std::array<Character, 4> CHARACTERS = {{
 }};
 
 struct LevelInfo {
-    const char *name;
-    const char *country;
+    std::string name;
+    std::string country;
+    std::string background;
+    std::string boss;
 };
-
-constexpr std::array<LevelInfo, 4> LEVELS = {{
-    {"Buenos Aires", "Argentine"},
-    {"Sidi Bou Saïd", "Tunisie"},
-    {"Istanbul", "Turquie"},
-    {"Le Maquis", "Corse"},
-}};
 
 constexpr const char *ASSETS_DIR = "assets/";
 constexpr const char *IMAGE_EXTENSION = ".png";
@@ -150,7 +179,8 @@ class ClientCore {
         Level,
         Joining,
         Game,
-        Leaving
+        Leaving,
+        Options
     };
 
     struct Transfer {
@@ -191,6 +221,10 @@ class ClientCore {
     std::optional<Transfer> _transfer;
     std::optional<BossBar> _boss;
     std::vector<Star> _stars;
+    std::vector<LevelInfo> _levels;
+    Settings _settings;
+    Scene _optionsReturn = Scene::Menu;
+    std::size_t _option = 0;
 
     void SetScene(Scene scene);
     void ShowMessage(const std::string& message);
@@ -220,6 +254,13 @@ class ClientCore {
     void OnEntityDestroy(const ArgsList& args);
     void OnBossHealth(const ArgsList& args);
     void OnLevelStart(const ArgsList& args);
+
+    void LoadLevels();
+    void LoadSettings();
+    void SaveSettings();
+    void OpenOptions();
+    void OptionsFrame(float dt);
+    Rgba Shade(Rgba normal) const;
 
     void MenuFrame();
     void LobbyFrame(float dt);

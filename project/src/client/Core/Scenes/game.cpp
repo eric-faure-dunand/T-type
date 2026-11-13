@@ -72,10 +72,17 @@ static Rgba ColorOf(const Appearance& look) {
 
 void ClientCore::GameFrame(float dt) {
     if (!_gameOver) {
+        if (_display.IsKeyPressed(Key::F)) {
+            _settings.autoFire = !_settings.autoFire;
+            SaveSettings();
+            ShowMessage(_settings.autoFire ? "Auto-fire ON" : "Auto-fire OFF");
+        }
         std::set<Action> held;
         for (const Binding& binding : BINDINGS)
             if (_display.IsKeyDown(binding.key))
                 held.insert(binding.action);
+        if (_settings.autoFire)
+            held.insert(Action::Fire);
         if (held != _held)
             SetHeld(held);
         ResendInputs(dt);
@@ -84,11 +91,14 @@ void ClientCore::GameFrame(float dt) {
     DrawBackground();
     DrawEntities();
     DrawBossBar();
-    _display.Print("ESC to leave the room", 10, 10, 18, palette::DIM);
     const int character = _world.PlayerColor();
     if (_world.Player() && character >= 0 && character < static_cast<int>(CHARACTERS.size()))
-        _display.Print(std::string("You are ") + CHARACTERS[static_cast<std::size_t>(character)].name, 10, 34, 18,
+        _display.Print(std::string("You are ") + CHARACTERS[static_cast<std::size_t>(character)].name, 10, 10, 18,
             palette::PLAYERS[character]);
+    if (!_gameOver)
+        DrawHint(_settings.autoFire ? "ARROWS / WASD to move  -  F to stop auto-fire  -  ESC to leave"
+                                    : "ARROWS / WASD to move  -  SPACE to fire  -  F for auto-fire  -  ESC to leave",
+            WINDOW_HEIGHT - 28, 16);
     if (_world.Count() == 0)
         DrawCentered("Waiting for the server...", WINDOW_HEIGHT / 2 - 15, 30, palette::FOREGROUND);
 
@@ -118,19 +128,27 @@ void ClientCore::LeaveRoom() {
 
 void ClientCore::DrawBackground() {
     const int character = _world.PlayerColor();
-    const char *country = nullptr;
-    if (_level)
-        country = LEVELS[*_level].country;
+    std::string sprite;
+    if (_level && *_level < _levels.size())
+        sprite = _levels[*_level].background;
     else if (character >= 0 && character < static_cast<int>(CHARACTERS.size()))
-        country = CHARACTERS[static_cast<std::size_t>(character)].country;
-    if (!country)
-        return;
-    if (!_display.HasSprite(country))
+        sprite = CHARACTERS[static_cast<std::size_t>(character)].country;
+    if (!_display.HasSprite(sprite))
         return;
     const auto width = static_cast<float>(WINDOW_WIDTH);
     const auto height = static_cast<float>(WINDOW_HEIGHT);
-    _display.DrawSprite(country, 0.f, 0.f, width, height);
-    _display.FillRect(0.f, 0.f, width, height, palette::BACKGROUND_SHADE);
+    const float offset = _settings.reduceMotion
+        ? 0.f
+        : static_cast<float>(std::fmod(_display.Time() * BACKGROUND_SCROLL, 2.0 * WINDOW_WIDTH));
+    _display.DrawSprite(sprite, -offset, 0.f, width, height);
+    _display.DrawSprite(sprite, width - offset, 0.f, width, height, 255, true);
+    _display.DrawSprite(sprite, 2.f * width - offset, 0.f, width, height);
+    _display.FillRect(0.f, 0.f, width, height, Shade(palette::BACKGROUND_SHADE));
+    DrawStars();
+}
+
+Rgba ClientCore::Shade(Rgba normal) const {
+    return _settings.darkBackgrounds ? palette::DARK_SHADE : normal;
 }
 
 void ClientCore::DrawBossBar() {

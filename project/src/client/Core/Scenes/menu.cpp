@@ -32,22 +32,24 @@ void ClientCore::MenuFrame() {
     const float boxX = static_cast<float>(WINDOW_WIDTH) / 2.f - 180.f;
     DrawTourBox(boxX, 389.f, 360.f, 56.f);
     _display.FillRect(boxX + 2.f, 391.f, 356.f, 52.f, palette::INPUT);
-    const bool caret = static_cast<int>(_display.Time() * 2) % 2 == 0;
+    const bool caret = _settings.reduceMotion || static_cast<int>(_display.Time() * 2) % 2 == 0;
     DrawCentered(_ip + (caret ? "_" : " "), 400, 30, palette::FOREGROUND);
 
     const bool clicked = TourButton("Connect", static_cast<float>(WINDOW_WIDTH) / 2.f - 100.f, 468.f, 200.f, 50.f);
-    DrawHint("ENTER to connect  -  ESC to quit", 540, 18);
+    DrawHint("ENTER to connect  -  O for options  -  ESC to quit", 540, 18);
 
     if ((clicked || _display.IsKeyPressed(Key::Enter)) && !_ip.empty()) {
         _messageTime = 0.f;
         ConnectServer();
+    } else if (_display.IsKeyPressed(Key::O)) {
+        OpenOptions();
     } else if (_display.IsKeyPressed(Key::Escape)) {
         _quit = true;
     }
 }
 
 void ClientCore::DrawMenuBackground() {
-    const double time = _display.Time();
+    const double time = _settings.reduceMotion ? 0.0 : _display.Time();
     const auto slide = static_cast<std::size_t>(time / MENU_SLIDE);
     const auto phase = static_cast<float>(time - static_cast<double>(slide) * MENU_SLIDE);
     const auto width = static_cast<float>(WINDOW_WIDTH);
@@ -58,7 +60,7 @@ void ClientCore::DrawMenuBackground() {
         _display.DrawSprite(CHARACTERS[(slide + 1) % CHARACTERS.size()].country, 0.f, 0.f, width, height,
             static_cast<std::uint8_t>(fade * 255.f));
     }
-    _display.FillRect(0.f, 0.f, width, height, palette::MENU_SHADE);
+    _display.FillRect(0.f, 0.f, width, height, Shade(palette::MENU_SHADE));
     DrawStars();
 }
 

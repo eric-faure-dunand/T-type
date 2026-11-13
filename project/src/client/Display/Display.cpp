@@ -68,6 +68,18 @@ static int ToRaylib(Key key) {
             return KEY_C;
         case Key::R:
             return KEY_R;
+        case Key::W:
+            return KEY_W;
+        case Key::A:
+            return KEY_A;
+        case Key::S:
+            return KEY_S;
+        case Key::D:
+            return KEY_D;
+        case Key::O:
+            return KEY_O;
+        case Key::F:
+            return KEY_F;
     }
     return KEY_NULL;
 }
@@ -183,12 +195,14 @@ bool Display::HasSprite(const std::string& name) const {
     return _sprites.contains(name);
 }
 
-void Display::DrawSprite(const std::string& name, float x, float y, float width, float height, std::uint8_t alpha) {
+void Display::DrawSprite(const std::string& name, float x, float y, float width, float height, std::uint8_t alpha,
+    bool mirrored) {
     const auto it = _sprites.find(name);
     if (it == _sprites.end())
         return;
     const ::Texture2D texture = ToRaylib(it->second);
-    const Rectangle source{0.f, 0.f, static_cast<float>(texture.width), static_cast<float>(texture.height)};
+    const auto textureWidth = static_cast<float>(texture.width);
+    const Rectangle source{0.f, 0.f, mirrored ? -textureWidth : textureWidth, static_cast<float>(texture.height)};
     DrawTexturePro(texture, source, Rectangle{x, y, width, height}, Vector2{0.f, 0.f}, 0.f, ::Color{255, 255, 255, alpha});
 }
 

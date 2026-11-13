@@ -8,6 +8,8 @@
 #ifndef GAME_LEVEL_HPP
     #define GAME_LEVEL_HPP
 
+    #include <algorithm>
+    #include <filesystem>
     #include <fstream>
     #include <iterator>
     #include <string>
@@ -52,6 +54,7 @@ EnemyType bossTypeFromName(const std::string &name);
 PatternType patternFromName(const std::string &name);
 LevelData parseLevel(const std::string &text);
 LevelData loadLevel(const std::string &path);
+std::vector<std::string> levelFiles();
 std::string levelPath(std::size_t level);
 
 }

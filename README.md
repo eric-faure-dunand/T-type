@@ -110,6 +110,8 @@ Open a second terminal:
 
 Connect to `127.0.0.1` from the game interface.
 
+Controls: arrows or WASD (ZQSD on a French keyboard) to move, SPACE to fire, F to switch auto-fire, ESC to leave. Press O in the menu or in the room list for the accessibility options.
+
 The client loads the trusted server public key from `.local/keys/server-public.pem`.
 
 ### 4. Connect additional clients
@@ -183,6 +185,7 @@ The project separates client-specific, server-specific and shared networking fun
 
 Additional documentation is available in the `doc/` directory.
 
+- [Accessibility](doc/Accessibility.md) — What the game offers to players with motor, visual, hearing or cognitive disabilities, and how to use it.
 - [Secure Networking Setup](doc/SECURE_NETWORK_SETUP.md) — Key generation, server and client setup, multiplayer testing and troubleshooting.
 - [Secure Networking Architecture](doc/SECURE_NETWORK_ARCHITECTURE.md) — Cryptographic design, handshake, secure sessions, datagram protection and replay prevention.
 

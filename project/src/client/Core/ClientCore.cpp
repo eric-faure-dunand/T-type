@@ -18,6 +18,8 @@ ClientCore::ClientCore(std::string ip):
     _display.LoadFont(TITLE_FONT, TITLE_FONT_PATH);
     _display.LoadFont(TEXT_FONT, TEXT_FONT_PATH);
     _display.UseFont(TEXT_FONT);
+    LoadSettings();
+    LoadLevels();
     for (const Character& character : CHARACTERS) {
         _display.LoadSprite(character.name, character.image);
         _display.LoadSprite(character.country, character.background);
@@ -78,6 +80,9 @@ void ClientCore::Run() {
             case Scene::Leaving:
                 WaitingFrame("Going back to the rooms...");
                 break;
+            case Scene::Options:
+                OptionsFrame(dt);
+                break;
         }
         DrawMessage(dt);
         _display.EndFrame();
@@ -134,6 +139,8 @@ void ClientCore::WaitingFrame(const std::string& text) {
 }
 
 void ClientCore::ScrollStars(float dt) {
+    if (_settings.reduceMotion)
+        return;
     for (Star& star : _stars) {
         star.x -= star.speed * dt;
         if (star.x < 0.f)

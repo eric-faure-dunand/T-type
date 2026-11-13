@@ -52,7 +52,13 @@ enum class Key {
     Escape,
     Backspace,
     C,
-    R
+    R,
+    W,
+    A,
+    S,
+    D,
+    O,
+    F
 };
 
 class Display {
@@ -87,7 +93,8 @@ public:
     void UseFont(const std::string& name);
     bool LoadSprite(const std::string& name, const std::string& path);
     bool HasSprite(const std::string& name) const;
-    void DrawSprite(const std::string& name, float x, float y, float width, float height, std::uint8_t alpha = 255);
+    void DrawSprite(const std::string& name, float x, float y, float width, float height, std::uint8_t alpha = 255,
+        bool mirrored = false);
 
     bool IsKeyDown(Key key) const;
     bool IsKeyPressed(Key key) const;
