@@ -9,6 +9,7 @@
     #define GAME_CONFIG_HPP
 
     #include <array>
+    #include <cstddef>
 
 namespace r_type::game {
 
@@ -20,7 +21,7 @@ constexpr int kCharacterCount = 4;
 
 constexpr const char *kLevelDirectory = "assets/levels/";
 constexpr const char *kLevelExtension = ".json";
-constexpr std::array<const char *, 4> kLevelNames = {"argentine", "tunisie", "turquie", "corse"};
+constexpr std::size_t kMaxLevels = 256;
 
 constexpr float kPlayerSpeed = 320.f;
 constexpr float kPlayerWidth = 48.f;

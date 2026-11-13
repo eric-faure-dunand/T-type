@@ -16,7 +16,7 @@ void Room::HandleChooseLevel(const Endpoint& from, const ArgsList& args) {
     if (player == _players.end() || std::get<std::uint32_t>(args[0][0]) != ecs::entityValue(player->second))
         return;
     const std::uint8_t level = std::get<std::uint8_t>(args[0][1]);
-    if (level >= game::kLevelNames.size())
+    if (level >= game::levelFiles().size())
         return;
     StartLevel(level);
 }
