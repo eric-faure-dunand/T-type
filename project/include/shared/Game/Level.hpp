@@ -17,6 +17,7 @@
     #include <nlohmann/json.hpp>
 
     #include "Error.hpp"
+    #include "GameConfig.hpp"
     #include "Pattern.hpp"
     #include "Tags.hpp"
 
@@ -51,6 +52,7 @@ EnemyType bossTypeFromName(const std::string &name);
 PatternType patternFromName(const std::string &name);
 LevelData parseLevel(const std::string &text);
 LevelData loadLevel(const std::string &path);
+std::string levelPath(std::size_t level);
 
 }
 

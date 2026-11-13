@@ -119,7 +119,7 @@ addGameplaySystems(systems, seed, loadLevel("assets/levels/turquie.json"));
 
 After each step, the server compares the entities with what the clients already know: a new entity is sent with `ENTITY_SPAWN`, a missing one with `ENTITY_DESTROY`, and positions with `ENTITY_UPDATE` (20 times per second).
 
-The room loads `assets/levels/turquie.json` for now (`DEFAULT_LEVEL` in `room.hpp`); choosing the level is the next step. If the file cannot be read, the room logs the error and runs without enemies.
+A new room plays no level: players can move and shoot, but no enemy comes. The client that created the room sends `CHOOSE_LEVEL`; the room then loads `assets/levels/<country>.json` (`levelPath()`, the names are in `kLevelNames`), rebuilds its systems with `addGameplaySystems()`, and tells every client with `LEVEL_START`. If the file cannot be read, the room logs the error and keeps waiting.
 
 ## Entity kinds on the network
 

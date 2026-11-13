@@ -43,11 +43,11 @@ The client is single-threaded. `ClientCore` owns the window, the socket and the 
 | `project/src/client/Core/Handlers/connection.cpp` | Handler registration, `CONNECT_ACCEPT`, `DISCONNECT`, `ERROR` |
 | `project/src/client/Core/Handlers/rooms.cpp` | `ROOM_LIST`, `ROOM_JOINED` |
 | `project/src/client/Core/Handlers/entities.cpp` | `PLAYER_CREATION`, initial state, `ENTITY_SPAWN` / `UPDATE` / `DESTROY` |
-| `project/src/client/Core/Scenes/menu.cpp` | IP input screen |
+| `project/src/client/Core/Scenes/menu.cpp` | IP input screen, *R-TYPE WORLD TOUR* title, country slideshow |
 | `project/src/client/Core/Scenes/lobby.cpp` | Room list, create / join |
 | `project/src/client/Core/Scenes/game.cpp` | Draws the entities, sends the inputs |
 | `project/include/client/World/World.hpp`, `src/client/World/World.cpp` | Client copy of the game in the ECS `Registry`, entity kinds |
-| `project/include/client/Display/Display.hpp`, `src/client/Display/Display.cpp` | Window, drawing, input. **The only file that includes Raylib.** |
+| `project/include/client/Display/Display.hpp`, `src/client/Display/Display.cpp` | Window, drawing, fonts, input. **The only file that includes Raylib.** |
 
 `Display.cpp` includes nothing from the project but `Display.hpp`. This keeps Raylib out of the rest of the client, and avoids name clashes: Raylib's `Color` collides with the project's `Color` namespace (`printer.hpp`), and Raylib's `DrawText` / `CloseWindow` collide with the Windows headers pulled by Asio. It also makes the client testable: the logic can be compiled against a fake `Display`.
 
@@ -59,14 +59,23 @@ The current scene is also the connection state:
 |---|---|---|
 | `Menu` | none | ENTER → `Connecting` (not shown at startup when a valid IP is given) |
 | `Connecting` | server | `CONNECT_ACCEPT` → `Lobby`; `ERROR` or 3 s without answer → `Menu` |
-| `Lobby` | server | C / ENTER: `CREATE_ROOM` / `JOIN_ROOM` → `Joining`; ESC → `Menu` |
+| `Lobby` | server | C (create) / ENTER (join) → `Character`; ESC → `Menu` |
+| `Character` | server | ENTER: when joining, `JOIN_ROOM` → `Joining`; when creating → `Level`; ESC → `Lobby` |
+| `Level` | server | ENTER: `CREATE_ROOM` → `Joining`, then `CHOOSE_LEVEL` once in the room; ESC → `Character` |
 | `Joining` | server, then room | `ROOM_JOINED`: connect to the room port; room `CONNECT_ACCEPT` → `Game`; `ERROR` or 3 s → `Lobby` |
-| `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving` |
+| `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving`. When its own ship is destroyed, the client shows *Game over* over the game, which keeps running, and stops sending inputs; after 1 s, ENTER or ESC leaves the same way |
 | `Leaving` | server | `CONNECT_ACCEPT` → `Lobby`; 3 s → `Menu` |
 
 The client always uses the same UDP socket, as required by RFC §2.1: a room only accepts the endpoint announced by the server. Closing the window sends `DISCONNECT_ROOM` to the room and `DISCONNECT` to the server.
 
 Everything can be done with the keyboard only (arrows, ENTER, ESC, C, R); the mouse also works.
+
+## Look
+
+- **Fonts**: Russo One for the title, Exo 2 for every other text, both in `assets/fonts` (SIL Open Font License, the license text is next to each `.ttf`). `Display::LoadFont` loads ASCII, Latin-1 and Latin Extended-A, so French and Turkish accents are drawn. `Display::UseFont` sets the font used by `Print` when no font is given. If a font file is missing, Raylib's default font is used.
+- **Text** is drawn with a small dark shadow, so it stays readable over the photos.
+- **Hints** (`DrawHint`): in a line like `ENTER to connect  -  ESC to quit`, the words in capitals are the keys and are drawn in yellow.
+- **Menu**: the four country backgrounds change every 3 s (`MENU_SLIDE`) with a 1 s fade (`MENU_FADE`), darkened, with the stars in front. The IP field and the *Connect* button use a gradient of the four player colours. In a game, the background is the country of the level and does not change.
 
 ## Game data
 

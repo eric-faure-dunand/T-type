@@ -10,6 +10,7 @@
     #include <iostream>
     #include <deque>
     #include <mutex>
+    #include <optional>
     #include <random>
     #include <unordered_map>
     #include <unordered_set>
@@ -28,7 +29,6 @@ constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
 constexpr std::size_t MAX_PENDING_INPUTS = 256;
 constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
 constexpr unsigned int ROOM_UPDATE_RATE = 20;
-constexpr const char *DEFAULT_LEVEL = "assets/levels/turquie.json";
 constexpr std::size_t MAX_RECORDS_PER_MESSAGE = 2048;
 
 class Room {
@@ -60,12 +60,15 @@ class Room {
     std::unordered_set<std::uint32_t> _synced;
     std::unordered_map<std::uint32_t, std::uint8_t> _bossHealth;
     std::uint64_t _tick = 0;
+    std::optional<std::uint8_t> _level;
 
     void Run();
 
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
     void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
     void HandleChooseCharacter(const Endpoint& from, const ArgsList& args);
+    void HandleChooseLevel(const Endpoint& from, const ArgsList& args);
+    void StartLevel(std::uint8_t level);
     void HandlePlayerConnection(const Endpoint& from);
     void SendInitialState(const Endpoint& client);
     void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);

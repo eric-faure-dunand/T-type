@@ -23,6 +23,8 @@ void Room::SendInitialState(const Endpoint& client) {
     net.SendTo(client, Command::InitialStateEnd, {{count}});
     for (const auto& [id, percent] : _bossHealth)
         net.SendTo(client, Command::BossHealth, {{id, percent}});
+    if (_level)
+        net.SendTo(client, Command::LevelStart, {{*_level}});
 }
 
 void Room::BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity) {

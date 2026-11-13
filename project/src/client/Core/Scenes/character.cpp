@@ -10,11 +10,7 @@
 namespace r_type::client {
 
 void ClientCore::CharacterFrame(float dt) {
-    _refreshTimer += dt;
-    if (_refreshTimer >= ROOM_REFRESH_DELAY) {
-        _refreshTimer = 0.f;
-        Send(Command::ListRooms, {{}});
-    }
+    KeepAlive(dt);
 
     DrawCentered("CHOOSE YOUR CHARACTER", 70, 44, palette::ACCENT);
 
@@ -48,7 +44,7 @@ void ClientCore::CharacterFrame(float dt) {
             static_cast<int>(y) + 260, 20, palette::DIM);
     }
 
-    DrawCentered("LEFT / RIGHT to choose  -  ENTER to play  -  ESC to go back", 560, 18, palette::DIM);
+    DrawHint("LEFT / RIGHT to choose  -  ENTER to play  -  ESC to go back", 560, 18);
 
     const auto total = static_cast<std::uint8_t>(CHARACTERS.size());
     if (_display.IsKeyPressed(Key::Right))
@@ -60,13 +56,23 @@ void ClientCore::CharacterFrame(float dt) {
 
     if (clicked) {
         _character = static_cast<std::uint8_t>(*clicked);
-        if (_joinTarget)
+        if (_joinTarget) {
+            _requestedLevel.reset();
             Send(Command::JoinRoom, {{*_joinTarget}});
-        else
-            Send(Command::CreateRoom, {{}});
-        SetScene(Scene::Joining);
+            SetScene(Scene::Joining);
+        } else {
+            SetScene(Scene::Level);
+        }
     } else if (_display.IsKeyPressed(Key::Escape)) {
         SetScene(Scene::Lobby);
+    }
+}
+
+void ClientCore::KeepAlive(float dt) {
+    _refreshTimer += dt;
+    if (_refreshTimer >= ROOM_REFRESH_DELAY) {
+        _refreshTimer = 0.f;
+        Send(Command::ListRooms, {{}});
     }
 }
 

@@ -18,6 +18,19 @@ void ClientCore::OnPlayerCreation(const ArgsList& args) {
     _world.SetPlayer(id, std::get<std::int32_t>(args[0][1]), std::get<std::int32_t>(args[0][2]), character);
     if (character != _character)
         Send(Command::ChooseCharacter, {{id, _character}});
+    if (_requestedLevel)
+        Send(Command::ChooseLevel, {{id, *_requestedLevel}});
+}
+
+void ClientCore::OnLevelStart(const ArgsList& args) {
+    if ((_scene != Scene::Game && _scene != Scene::Joining) || _roomPort == 0 || args.size() != 1 || args[0].size() != 1)
+        return;
+    const std::uint8_t level = std::get<std::uint8_t>(args[0][0]);
+    if (level >= LEVELS.size() || _level == level)
+        return;
+    _level = level;
+    _requestedLevel.reset();
+    ShowMessage(std::string("Level : ") + LEVELS[level].name + " (" + LEVELS[level].country + ")");
 }
 
 void ClientCore::OnInitialStateBegin(const ArgsList& args) {
@@ -92,10 +105,10 @@ void ClientCore::OnEntityDestroy(const ArgsList& args) {
         if (record.size() != 1)
             continue;
         const std::uint32_t id = std::get<std::uint32_t>(record[0]);
-        if (_world.Player() == id) {
-            Send(Command::DisconnectRoom, {{id}});
-            ReturnToLobby();
-            return;
+        if (_world.Player() == id && !_gameOver) {
+            _gameOver = 0.f;
+            _held.clear();
+            _releases.clear();
         }
         _destroyed.insert(id);
         if (_boss && _boss->id == id)
