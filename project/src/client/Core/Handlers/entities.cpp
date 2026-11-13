@@ -26,11 +26,11 @@ void ClientCore::OnLevelStart(const ArgsList& args) {
     if ((_scene != Scene::Game && _scene != Scene::Joining) || _roomPort == 0 || args.size() != 1 || args[0].size() != 1)
         return;
     const std::uint8_t level = std::get<std::uint8_t>(args[0][0]);
-    if (level >= LEVELS.size() || _level == level)
+    if (level >= _levels.size() || _level == level)
         return;
     _level = level;
     _requestedLevel.reset();
-    ShowMessage(std::string("Level : ") + LEVELS[level].name + " (" + LEVELS[level].country + ")");
+    ShowMessage("Level : " + _levels[level].name + " (" + _levels[level].country + ")");
 }
 
 void ClientCore::OnInitialStateBegin(const ArgsList& args) {

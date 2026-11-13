@@ -53,7 +53,7 @@ void ClientCore::LobbyFrame(float dt) {
     const bool create = Button("Create room (C)", listX, buttonsY, 190.f, 50.f);
     const bool refresh = Button("Refresh (R)", listX + 205.f, buttonsY, 190.f, 50.f);
     const bool back = Button("Back (ESC)", listX + 410.f, buttonsY, 190.f, 50.f);
-    DrawHint("UP / DOWN to choose  -  ENTER to join", 640, 18);
+    DrawHint("UP / DOWN to choose  -  ENTER to join  -  O for options", 640, 18);
 
     const std::size_t count = std::min(_rooms.size(), visible);
     if (_display.IsKeyPressed(Key::Down) && count > 0)
@@ -71,6 +71,8 @@ void ClientCore::LobbyFrame(float dt) {
         SetScene(Scene::Character);
     } else if (refresh || _display.IsKeyPressed(Key::R)) {
         Send(Command::ListRooms, {{}});
+    } else if (_display.IsKeyPressed(Key::O)) {
+        OpenOptions();
     } else if (back || _display.IsKeyPressed(Key::Escape)) {
         SayGoodbye();
         GoOffline("");
