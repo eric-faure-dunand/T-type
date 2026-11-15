@@ -8,6 +8,7 @@ r-type_settings.json
 
 
 .local/
+*~
 
 # Generated test executables
 *_tests
