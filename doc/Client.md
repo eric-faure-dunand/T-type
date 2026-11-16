@@ -75,11 +75,11 @@ Everything can be done with the keyboard only (arrows, ENTER, ESC, C, R); the mo
 
 ## Look
 
-- **Fonts**: Russo One for the title, Exo 2 for every other text, both in `assets/fonts` (SIL Open Font License, the license text is next to each `.ttf`). `Display::LoadFont` loads ASCII, Latin-1 and Latin Extended-A, so French and Turkish accents are drawn. `Display::UseFont` sets the font used by `Print` when no font is given. If a font file is missing, Raylib's default font is used.
+- **Fonts**: Russo One for the title, Exo 2 for every other text (Exo 2 SemiBold for the buttons), both in `assets/fonts` (SIL Open Font License, the license text is next to each `.ttf`). `Display::LoadFont` loads ASCII, Latin-1 and Latin Extended-A, so French and Turkish accents are drawn. `Display::UseFont` sets the font used by `Print` when no font is given. If a font file is missing, Raylib's default font is used.
 - **Text** is drawn with a small dark shadow, so it stays readable over the photos.
 - **Hints** (`DrawHint`): in a line like `ENTER to connect  -  ESC to quit`, the words in capitals are the keys and are drawn in yellow.
 - **Game background**: the photo of the level scrolls slowly to the left (`BACKGROUND_SCROLL`, 15 px/s), every other copy mirrored so the seam does not show, darkened, with the starfield in front.
-- **Menu**: the four country backgrounds change every 3 s (`MENU_SLIDE`) with a 1 s fade (`MENU_FADE`), darkened, with the stars in front. The IP field and the *Connect* button use a gradient of the four player colours. In a game, the background is the country of the level and does not change.
+- **Menu**: the four country backgrounds change every 3 s (`MENU_SLIDE`) with a 1 s fade (`MENU_FADE`), darkened, with the stars in front. The IP field has a border with a gradient of the four player colours; the *CONNECT* button is a pill filled with that gradient, with white text in Exo 2 SemiBold. In a game, the background is the country of the level and does not change.
 
 ## Game data
 
