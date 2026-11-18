@@ -86,6 +86,7 @@ public:
     void FillRect(float x, float y, float width, float height, Rgba color);
     void OutlineRect(float x, float y, float width, float height, float thickness, Rgba color);
     void FillCircle(float x, float y, float radius, Rgba color);
+    void FillRounded(float x, float y, float width, float height, Rgba color);
     void FillGradient(float x, float y, float width, float height, Rgba left, Rgba right);
     void Print(const std::string& text, int x, int y, int size, Rgba color, const std::string& font = "");
     int TextWidth(const std::string& text, int size, const std::string& font = "") const;

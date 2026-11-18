@@ -134,6 +134,10 @@ void Display::FillCircle(float x, float y, float radius, Rgba color) {
     DrawCircleV(Vector2{x, y}, radius, ToRaylib(color));
 }
 
+void Display::FillRounded(float x, float y, float width, float height, Rgba color) {
+    DrawRectangleRounded(Rectangle{x, y, width, height}, 1.f, 16, ToRaylib(color));
+}
+
 void Display::FillGradient(float x, float y, float width, float height, Rgba left, Rgba right) {
     DrawRectangleGradientH(static_cast<int>(x), static_cast<int>(y), static_cast<int>(width), static_cast<int>(height),
         ToRaylib(left), ToRaylib(right));

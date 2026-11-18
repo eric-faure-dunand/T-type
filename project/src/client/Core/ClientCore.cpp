@@ -17,6 +17,7 @@ ClientCore::ClientCore(std::string ip):
     RegisterHandlers();
     _display.LoadFont(TITLE_FONT, TITLE_FONT_PATH);
     _display.LoadFont(TEXT_FONT, TEXT_FONT_PATH);
+    _display.LoadFont(BOLD_FONT, BOLD_FONT_PATH);
     _display.UseFont(TEXT_FONT);
     LoadSettings();
     LoadLevels();

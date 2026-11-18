@@ -52,8 +52,10 @@ constexpr const char *BACKGROUNDS_DIR = "backgrounds/";
 constexpr const char *WINDOW_TITLE = "R-Type World Tour";
 constexpr const char *TITLE_FONT = "title";
 constexpr const char *TEXT_FONT = "text";
+constexpr const char *BOLD_FONT = "bold";
 constexpr const char *TITLE_FONT_PATH = "assets/fonts/RussoOne-Regular.ttf";
 constexpr const char *TEXT_FONT_PATH = "assets/fonts/Exo2-Regular.ttf";
+constexpr const char *BOLD_FONT_PATH = "assets/fonts/Exo2-SemiBold.ttf";
 
 enum class Action : std::uint8_t {
     Up = 0x00,
@@ -119,7 +121,8 @@ constexpr Rgba BOSS_HEALTH{230, 60, 60, 255};
 constexpr Rgba GAME_OVER_SHADE{0, 0, 0, 150};
 constexpr Rgba MENU_SHADE{8, 8, 20, 140};
 constexpr Rgba INPUT{8, 8, 20, 220};
-constexpr Rgba BUTTON_HOVER{255, 255, 255, 60};
+constexpr Rgba BUTTON_HOVER{255, 255, 255, 50};
+constexpr Rgba BUTTON_TEXT{255, 255, 255, 255};
 constexpr Rgba PLAYERS[4] = {{102, 191, 255, 255}, {255, 109, 194, 255}, {0, 200, 80, 255}, {255, 203, 0, 255}};
 }
 
@@ -272,6 +275,7 @@ class ClientCore {
     void DrawMenuBackground();
     void DrawTitle();
     void DrawTourBox(float x, float y, float width, float height);
+    void DrawTourPill(float x, float y, float width, float height);
     bool TourButton(const std::string& label, float x, float y, float width, float height);
     void DrawHint(const std::string& text, int y, int size);
     void ScrollStars(float dt);

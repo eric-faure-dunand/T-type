@@ -35,7 +35,7 @@ void ClientCore::MenuFrame() {
     const bool caret = _settings.reduceMotion || static_cast<int>(_display.Time() * 2) % 2 == 0;
     DrawCentered(_ip + (caret ? "_" : " "), 400, 30, palette::FOREGROUND);
 
-    const bool clicked = TourButton("Connect", static_cast<float>(WINDOW_WIDTH) / 2.f - 100.f, 468.f, 200.f, 50.f);
+    const bool clicked = TourButton("CONNECT", static_cast<float>(WINDOW_WIDTH) / 2.f - 115.f, 466.f, 230.f, 54.f);
     DrawHint("ENTER to connect  -  O for options  -  ESC to quit", 540, 18);
 
     if ((clicked || _display.IsKeyPressed(Key::Enter)) && !_ip.empty()) {
@@ -94,15 +94,33 @@ void ClientCore::DrawTourBox(float x, float y, float width, float height) {
     }
 }
 
+void ClientCore::DrawTourPill(float x, float y, float width, float height) {
+    const float radius = height / 2.f;
+    _display.FillCircle(x + radius, y + radius, radius, palette::PLAYERS[0]);
+    _display.FillCircle(x + width - radius, y + radius, radius, palette::PLAYERS[CHARACTERS.size() - 1]);
+    DrawTourBox(x + radius, y, width - 2.f * radius, height);
+}
+
 bool ClientCore::TourButton(const std::string& label, float x, float y, float width, float height) {
     const float mx = _display.MouseX();
     const float my = _display.MouseY();
     const bool hover = mx >= x && mx <= x + width && my >= y && my <= y + height;
-    DrawTourBox(x, y, width, height);
+    DrawTourPill(x, y, width, height);
     if (hover)
-        _display.FillRect(x, y, width, height, palette::BUTTON_HOVER);
-    const int textX = static_cast<int>(x + (width - static_cast<float>(_display.TextWidth(label, 22))) / 2.f);
-    _display.Print(label, textX, static_cast<int>(y + (height - 22.f) / 2.f), 22, palette::BACKGROUND);
+        _display.FillRounded(x, y, width, height, palette::BUTTON_HOVER);
+
+    const int size = 24;
+    const int spacing = 3;
+    int total = -spacing;
+    for (const char c : label)
+        total += _display.TextWidth(std::string(1, c), size, BOLD_FONT) + spacing;
+    int textX = static_cast<int>(x + (width - static_cast<float>(total)) / 2.f);
+    const int textY = static_cast<int>(y + (height - static_cast<float>(size)) / 2.f);
+    for (const char c : label) {
+        const std::string glyph(1, c);
+        _display.Print(glyph, textX, textY, size, palette::BUTTON_TEXT, BOLD_FONT);
+        textX += _display.TextWidth(glyph, size, BOLD_FONT) + spacing;
+    }
     return hover && _display.IsMouseClicked();
 }
 
