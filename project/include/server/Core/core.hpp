@@ -12,6 +12,8 @@
     #include "network.hpp"
     #include "room.hpp"
 
+    #include "Encryption/SecurityConfig.hpp"
+
 namespace r_type {
 
 constexpr std::size_t DEFAULT_SERVER_CLIENTS = 50;

@@ -1,6 +1,7 @@
 #ifndef ROOM_HPP
     #define ROOM_HPP
 
+    #include <algorithm>
     #include <atomic>
     #include <chrono>
     #include <cstddef>
@@ -9,18 +10,26 @@
     #include <iostream>
     #include <deque>
     #include <mutex>
+    #include <optional>
+    #include <random>
+    #include <unordered_map>
+    #include <unordered_set>
 
     #include "sig.hpp"
     #include "clock.hpp"
     #include "network.hpp"
     #include "Registry.hpp"
-    #include "Components/PlayerComponents.hpp"
+    #include "Gameplay.hpp"
+    #include "Spawner.hpp"
+    #include "Encryption/SecurityConfig.hpp"
 
 namespace r_type {
 
 constexpr std::size_t DEFAULT_ROOM_CLIENTS = 4;
 constexpr std::size_t MAX_PENDING_INPUTS = 256;
 constexpr std::chrono::minutes ROOM_IDLE_TIMEOUT{1};
+constexpr unsigned int ROOM_UPDATE_RATE = 20;
+constexpr std::size_t MAX_RECORDS_PER_MESSAGE = 2048;
 
 class Room {
 
@@ -44,20 +53,33 @@ class Room {
     std::deque<Endpoint> _pendingDisconnections;
 
     ecs::Registry registre;
+    ecs::SystemManager _systems;
 
     std::map<Endpoint, ecs::Entity> _players;
+
+    std::unordered_set<std::uint32_t> _synced;
+    std::unordered_map<std::uint32_t, std::uint8_t> _bossHealth;
+    std::uint64_t _tick = 0;
+    std::optional<std::uint8_t> _level;
 
     void Run();
 
     void DebugFallback(const Endpoint& from, Command command, const ArgsList& args);
     void HandlePlayerInput(const Endpoint& from, const ArgsList& args);
+    void HandleChooseCharacter(const Endpoint& from, const ArgsList& args);
+    void HandleChooseLevel(const Endpoint& from, const ArgsList& args);
+    void StartLevel(std::uint8_t level);
     void HandlePlayerConnection(const Endpoint& from);
     void SendInitialState(const Endpoint& client);
     void BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity);
     void HandlePlayerDisconnection(const Endpoint& from);
 
-    void UpdatePlayers();
-    void BroadcastPlayerUpdates();
+    Args SpawnArgs(ecs::Entity entity);
+    void SendList(const Endpoint& client, Command command, const ArgsList& records);
+    void Broadcast(Command command, const ArgsList& records);
+    void ApplyInputs();
+    void SyncEntities();
+    void SyncBossHealth();
 
     void ProcessPendingDisconnections();
 

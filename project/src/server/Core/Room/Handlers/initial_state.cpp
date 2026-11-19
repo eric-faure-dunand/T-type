@@ -10,35 +10,31 @@
 namespace r_type {
 
 void Room::SendInitialState(const Endpoint& client) {
-    const std::uint32_t count = static_cast<std::uint32_t>(_players.size());
+    ArgsList spawns;
+    registre.each<game::Kind, game::Position>(
+        [this, &spawns](ecs::Entity entity, const game::Kind&, const game::Position&) {
+            spawns.push_back(SpawnArgs(entity));
+        }
+    );
+    const std::uint32_t count = static_cast<std::uint32_t>(spawns.size());
     net.SendTo(client, Command::InitialStateBegin, {{count}});
-    for (const auto& [endpoint, entity] : _players) {
-        if (!registre.alive(entity))
-            continue;
-        const Position& position = registre.get<Position>(entity);
-        net.SendTo(client, Command::EntitySpawn, {{
-            ecs::entityValue(entity),
-            std::uint8_t{1},
-            position.x,
-            position.y
-        }});
-    }
+    if (!spawns.empty())
+        SendList(client, Command::EntitySpawn, spawns);
     net.SendTo(client, Command::InitialStateEnd, {{count}});
+    for (const auto& [id, percent] : _bossHealth)
+        net.SendTo(client, Command::BossHealth, {{id, percent}});
+    if (_level)
+        net.SendTo(client, Command::LevelStart, {{*_level}});
 }
 
 void Room::BroadcastPlayerSpawn(const Endpoint& newClient, ecs::Entity entity) {
     if (!registre.alive(entity))
         return;
-    const Position& position = registre.get<Position>(entity);
+    const ArgsList args{SpawnArgs(entity)};
     for (const auto& [endpoint, existingEntity] : _players) {
         if (endpoint == newClient)
             continue;
-        net.SendTo(endpoint, Command::EntitySpawn, {{
-            ecs::entityValue(entity),
-            std::uint8_t{1},
-            position.x,
-            position.y
-        }});
+        net.SendTo(endpoint, Command::EntitySpawn, args);
     }
 }
 

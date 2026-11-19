@@ -9,12 +9,13 @@
 namespace r_type {
 
 constexpr std::uint16_t MAGIC_NUMBER = 0x5254;
-constexpr std::size_t HEADER_SIZE = 13;
+constexpr std::size_t HEADER_SIZE = 17;
 constexpr std::size_t MAX_DATAGRAM_SIZE = 1200;
 constexpr std::size_t MAX_PAYLOAD_SIZE = MAX_DATAGRAM_SIZE - HEADER_SIZE;
 
 constexpr std::uint32_t FRAGMENT_INDEX = 1;
 constexpr std::uint32_t FRAGMENT_COUNT = 1;
+constexpr std::uint32_t MAX_FRAGMENTS = 32;
 
 enum class Command : std::uint8_t {
     ConnectRequest = 0x01,
@@ -27,13 +28,19 @@ enum class Command : std::uint8_t {
     RoomList = 0x08,
     DisconnectRoom = 0x09,
     PlayerInput = 0x10,
+    ChooseCharacter = 0x11,
+    ChooseLevel = 0x12,
     InitialStateBegin = 0x20,
     EntityUpdate = 0x21,
     EntitySpawn = 0x22,
     EntityDestroy = 0x23,
     InitialStateEnd = 0x24,
     PlayerCreation = 0x25,
+    BossHealth = 0x26,
+    LevelStart = 0x27,
     Ack = 0x30,
+    Resend = 0x31,
+    HandshakeReady = 0x32,
     Error = 0x84,
 };
 
@@ -42,7 +49,7 @@ enum class NetError : std::uint8_t {
     DatagramTooLong = 0x02,
     BadMagic = 0x03,
     SizeMismatch = 0x04,
-    FragmentationUnsupported = 0x05,
+    BadFragment = 0x05,
     UnknownCommand = 0x06,
     ReservedCommand = 0x07,
     WrongDirection = 0x08,
@@ -77,6 +84,7 @@ struct CommandInfo {
     std::vector<ArgType> schema;
     bool list = false;
     bool reserved = false;
+    bool reliable = false;
 };
 
 enum class InputState : std::uint8_t {

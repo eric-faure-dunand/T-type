@@ -38,6 +38,8 @@ void ClientCore::RegisterHandlers() {
     _net.On(Command::EntitySpawn, [this](const Endpoint&, const ArgsList& args) {OnEntitySpawn(args);});
     _net.On(Command::EntityUpdate, [this](const Endpoint&, const ArgsList& args) {OnEntityUpdate(args);});
     _net.On(Command::EntityDestroy, [this](const Endpoint&, const ArgsList& args) {OnEntityDestroy(args);});
+    _net.On(Command::BossHealth, [this](const Endpoint&, const ArgsList& args) {OnBossHealth(args);});
+    _net.On(Command::LevelStart, [this](const Endpoint&, const ArgsList& args) {OnLevelStart(args);});
 }
 
 void ClientCore::OnConnectAccept() {
@@ -82,6 +84,9 @@ void ClientCore::OnError(const ArgsList& args) {
             }
             break;
         case Scene::Lobby:
+        case Scene::Character:
+        case Scene::Level:
+        case Scene::Options:
             if (error == NetError::NotConnected)
                 GoOffline("Connection to the server lost");
             break;

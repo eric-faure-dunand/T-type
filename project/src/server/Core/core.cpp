@@ -15,11 +15,12 @@ Core::Core(std::uint16_t port): _socket(Role::Server, DEFAULT_SERVER_CLIENTS) {
     _socket.On(Command::Disconnect, [this](const Endpoint& from, const ArgsList&) {
         LeaveRooms(from);
     });
+    _socket.SetServerIdentity(SecurityConfig::serverPrivateKeyPath());
     _socket.Bind(port);
 }
 
 void Core::Run() {
-    while (SERVER_RUN) {
+    while (APP_RUN) {
         if (_clock.Tick()) {
             _socket.Poll();
             CloseRooms();

@@ -33,6 +33,7 @@ static std::uint32_t ReadU32(std::span<const std::uint8_t> data, std::size_t off
 static void WriteHeader(std::vector<std::uint8_t>& out, const Header& header) {
     WriteU16(out, header.magic);
     out.push_back(header.command);
+    WriteU32(out, header.messageId);
     WriteU32(out, header.sequenceNumber);
     WriteU32(out, header.sequenceLength);
     WriteU16(out, header.size);
@@ -42,9 +43,10 @@ static Header ReadHeader(std::span<const std::uint8_t> data) {
     Header header;
     header.magic = ReadU16(data, 0);
     header.command = data[2];
-    header.sequenceNumber = ReadU32(data, 3);
-    header.sequenceLength = ReadU32(data, 7);
-    header.size = ReadU16(data, 11);
+    header.messageId = ReadU32(data, 3);
+    header.sequenceNumber = ReadU32(data, 7);
+    header.sequenceLength = ReadU32(data, 11);
+    header.size = ReadU16(data, 15);
     return header;
 }
 
@@ -84,7 +86,25 @@ static Arg ReadArg(std::span<const std::uint8_t> data, std::size_t offset, ArgTy
     return std::uint8_t{0};
 }
 
-std::vector<std::uint8_t> EncodePacket(Command command, const ArgsList& argsList, Role role) {
+static Datagram EncodeFragment(const CommandInfo& info, std::uint8_t code, std::span<const Args> records, Header header) {
+    header.command = code;
+    header.size = static_cast<std::uint16_t>(records.size() * SchemaSize(info.schema));
+
+    Datagram datagram;
+    datagram.reserve(HEADER_SIZE + header.size);
+    WriteHeader(datagram, header);
+    for (const Args& args : records) {
+        if (args.size() != info.schema.size())
+            throw Error("Packet: command " + Hex(code) + " expects " + std::to_string(info.schema.size())
+                + " arguments, got " + std::to_string(args.size()) + ".");
+        for (std::size_t i = 0; i < args.size(); i++)
+            WriteArg(datagram, info.schema[i], args[i], code, i);
+    }
+    return datagram;
+}
+
+std::vector<Datagram> EncodeMessage(Command command, const ArgsList& argsList,
+    Role role, std::uint32_t messageId, std::size_t maxPayloadSize) {
     const std::uint8_t code = static_cast<std::uint8_t>(command);
     const CommandInfo *info = FindCommand(code);
 
@@ -95,26 +115,32 @@ std::vector<std::uint8_t> EncodePacket(Command command, const ArgsList& argsList
     if (!info->list && argsList.size() != 1)
         throw Error("Packet: command " + Hex(code) + " must carry exactly one record.");
 
-    const std::size_t payloadSize = argsList.size() * SchemaSize(info->schema);
-    if (payloadSize > MAX_PAYLOAD_SIZE)
-        throw Error("Packet: command " + Hex(code) + " payload of " + std::to_string(payloadSize)
+    const std::size_t recordSize = SchemaSize(info->schema);
+    if (maxPayloadSize == 0 || maxPayloadSize > MAX_PAYLOAD_SIZE)
+        throw Error("Packet: invalid maximum payload size.");
+    if (recordSize > maxPayloadSize)
+        throw Error("Packet: command " + Hex(code) + " record of " + std::to_string(recordSize)
             + " bytes exceeds " + std::to_string(MAX_PAYLOAD_SIZE) + ".");
 
-    Header header;
-    header.command = code;
-    header.size = static_cast<std::uint16_t>(payloadSize);
+    const std::size_t perDatagram = recordSize == 0 ? 1 : maxPayloadSize / recordSize;
+    const std::size_t count = std::max<std::size_t>(1, (argsList.size() + perDatagram - 1) / perDatagram);
+    if (count > MAX_FRAGMENTS)
+        throw Error("Packet: command " + Hex(code) + " needs " + std::to_string(count)
+            + " fragments, above " + std::to_string(MAX_FRAGMENTS) + ".");
 
-    std::vector<std::uint8_t> datagram;
-    datagram.reserve(HEADER_SIZE + header.size);
-    WriteHeader(datagram, header);
-    for (const Args& args : argsList) {
-        if (args.size() != info->schema.size())
-            throw Error("Packet: command " + Hex(code) + " expects " + std::to_string(info->schema.size())
-                + " arguments, got " + std::to_string(args.size()) + ".");
-        for (std::size_t i = 0; i < args.size(); i++)
-            WriteArg(datagram, info->schema[i], args[i], code, i);
+    Header header;
+    header.messageId = messageId;
+    header.sequenceLength = static_cast<std::uint32_t>(count);
+
+    const std::span<const Args> records(argsList);
+    std::vector<Datagram> datagrams;
+    datagrams.reserve(count);
+    for (std::size_t i = 0; i < count; i++) {
+        const std::size_t first = i * perDatagram;
+        header.sequenceNumber = static_cast<std::uint32_t>(i + 1);
+        datagrams.push_back(EncodeFragment(*info, code, records.subspan(first, std::min(perDatagram, records.size() - first)), header));
     }
-    return datagram;
+    return datagrams;
 }
 
 static DecodeResult Reject(NetError error, std::uint8_t rejectedCommand) {
@@ -135,8 +161,8 @@ DecodeResult DecodePacket(std::span<const std::uint8_t> datagram, Role role) {
         return Reject(NetError::DatagramTooLong, header.command);
     if (header.size != datagram.size() - HEADER_SIZE)
         return Reject(NetError::SizeMismatch, header.command);
-    if (header.sequenceNumber != FRAGMENT_INDEX || header.sequenceLength != FRAGMENT_COUNT)
-        return Reject(NetError::FragmentationUnsupported, header.command);
+    if (header.sequenceNumber == 0 || header.sequenceNumber > header.sequenceLength || header.sequenceLength > MAX_FRAGMENTS)
+        return Reject(NetError::BadFragment, header.command);
 
     const CommandInfo *info = FindCommand(header.command);
     if (info == nullptr)
@@ -145,6 +171,8 @@ DecodeResult DecodePacket(std::span<const std::uint8_t> datagram, Role role) {
         return Reject(NetError::ReservedCommand, header.command);
     if (!CanReceive(info->direction, role))
         return Reject(NetError::WrongDirection, header.command);
+    if (header.sequenceLength != FRAGMENT_COUNT && !info->list)
+        return Reject(NetError::BadFragment, header.command);
 
     const std::size_t recordSize = SchemaSize(info->schema);
     const bool validSize = info->list
@@ -156,6 +184,9 @@ DecodeResult DecodePacket(std::span<const std::uint8_t> datagram, Role role) {
     DecodeResult result;
     result.ok = true;
     result.command = static_cast<Command>(header.command);
+    result.messageId = header.messageId;
+    result.fragmentIndex = header.sequenceNumber;
+    result.fragmentCount = header.sequenceLength;
     const std::size_t records = info->list ? header.size / recordSize : 1;
     std::size_t offset = HEADER_SIZE;
     for (std::size_t r = 0; r < records; r++) {

@@ -12,8 +12,9 @@
 #include "Error.hpp"
 
 int main(int argc, char **argv) {
+    std::signal(SIGINT, sigint);
     try {
-        r_type::client::ClientCore core(argc > 1 ? argv[1] : "127.0.0.1");
+        r_type::client::ClientCore core(argc > 1 ? argv[1] : "");
         core.Run();
     } catch (const IError &e) {
         std::cerr << e;

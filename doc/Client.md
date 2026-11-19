@@ -6,8 +6,11 @@ This guide explains how `r-type_client` is built: its main loop, its screens, an
 
 ```sh
 ./r-type_client              # the menu asks for the server IP (default 127.0.0.1)
-./r-type_client 10.0.0.5     # pre-fills the IP field
+./r-type_client 10.0.0.5     # connects to the server right away, without the menu
+./r-type_client localhost    # same as 127.0.0.1
 ```
+
+`localhost` is the only accepted name, any other value must be an IPv4 address. A wrong address does not stop the client: the window opens on the menu with an `Invalid IP address` message and the IP can be typed again. The menu is also shown again when the connection to the server is lost. Ctrl+C closes the client the same way as closing the window.
 
 The port is always the server default, `6767`. On Windows the executable opens without a console, so it can be started with a double click.
 
@@ -32,18 +35,21 @@ The client is single-threaded. `ClientCore` owns the window, the socket and the 
 
 | Path | Content |
 |---|---|
-| `project/src/client/main.cpp` | Reads the optional IP argument, runs `ClientCore` |
+| `project/src/client/main.cpp` | Reads the optional IP argument, installs the Ctrl+C handler, runs `ClientCore` |
+| `project/include/shared/sig.hpp`, `src/shared/sig.cpp` | `APP_RUN` flag cleared by the Ctrl+C handler `sigint`, checked by the main loop (shared with the server) |
 | `project/include/client/Core/ClientCore.hpp` | `ClientCore`, constants (window, timeouts), input actions and key bindings, colour palette |
 | `project/src/client/Core/ClientCore.cpp` | Main loop, scenes, timeouts, starfield, UI helpers |
 | `project/src/client/Core/connection.cpp` | Connect to the server, go to a room and back, leave, send inputs |
 | `project/src/client/Core/Handlers/connection.cpp` | Handler registration, `CONNECT_ACCEPT`, `DISCONNECT`, `ERROR` |
 | `project/src/client/Core/Handlers/rooms.cpp` | `ROOM_LIST`, `ROOM_JOINED` |
 | `project/src/client/Core/Handlers/entities.cpp` | `PLAYER_CREATION`, initial state, `ENTITY_SPAWN` / `UPDATE` / `DESTROY` |
-| `project/src/client/Core/Scenes/menu.cpp` | IP input screen |
+| `project/src/client/Core/Scenes/menu.cpp` | IP input screen, *R-TYPE WORLD TOUR* title, country slideshow |
 | `project/src/client/Core/Scenes/lobby.cpp` | Room list, create / join |
+| `project/src/client/Core/Scenes/level.cpp` | Reads the level files, level screen |
+| `project/src/client/Core/Scenes/options.cpp` | Accessibility options, saved in `r-type_settings.json` |
 | `project/src/client/Core/Scenes/game.cpp` | Draws the entities, sends the inputs |
 | `project/include/client/World/World.hpp`, `src/client/World/World.cpp` | Client copy of the game in the ECS `Registry`, entity kinds |
-| `project/include/client/Display/Display.hpp`, `src/client/Display/Display.cpp` | Window, drawing, input. **The only file that includes Raylib.** |
+| `project/include/client/Display/Display.hpp`, `src/client/Display/Display.cpp` | Window, drawing, fonts, input. **The only file that includes Raylib.** |
 
 `Display.cpp` includes nothing from the project but `Display.hpp`. This keeps Raylib out of the rest of the client, and avoids name clashes: Raylib's `Color` collides with the project's `Color` namespace (`printer.hpp`), and Raylib's `DrawText` / `CloseWindow` collide with the Windows headers pulled by Asio. It also makes the client testable: the logic can be compiled against a fake `Display`.
 
@@ -53,32 +59,45 @@ The current scene is also the connection state:
 
 | Scene | Current host | Leaves the scene on |
 |---|---|---|
-| `Menu` | none | ENTER → `Connecting` |
+| `Menu` | none | ENTER → `Connecting` (not shown at startup when a valid IP is given) |
 | `Connecting` | server | `CONNECT_ACCEPT` → `Lobby`; `ERROR` or 3 s without answer → `Menu` |
-| `Lobby` | server | C / ENTER: `CREATE_ROOM` / `JOIN_ROOM` → `Joining`; ESC → `Menu` |
+| `Lobby` | server | C (create) / ENTER (join) → `Character`; ESC → `Menu` |
+| `Character` | server | ENTER: when joining, `JOIN_ROOM` → `Joining`; when creating → `Level`; ESC → `Lobby` |
+| `Level` | server | ENTER: `CREATE_ROOM` → `Joining`, then `CHOOSE_LEVEL` once in the room; ESC → `Character` |
 | `Joining` | server, then room | `ROOM_JOINED`: connect to the room port; room `CONNECT_ACCEPT` → `Game`; `ERROR` or 3 s → `Lobby` |
-| `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving` |
+| `Game` | room | ESC: `DISCONNECT_ROOM`, reconnect to the server → `Leaving`. When its own ship is destroyed, the client shows *Game over* over the game, which keeps running, and stops sending inputs; after 1 s, ENTER or ESC leaves the same way |
 | `Leaving` | server | `CONNECT_ACCEPT` → `Lobby`; 3 s → `Menu` |
+| `Options` | same as before | Opened with O from `Menu` or `Lobby`; ESC goes back to that scene. While opened from the lobby, the client keeps refreshing the room list so the server does not drop it |
 
 The client always uses the same UDP socket, as required by RFC §2.1: a room only accepts the endpoint announced by the server. Closing the window sends `DISCONNECT_ROOM` to the room and `DISCONNECT` to the server.
 
 Everything can be done with the keyboard only (arrows, ENTER, ESC, C, R); the mouse also works.
 
+## Look
+
+- **Fonts**: Russo One for the title, Exo 2 for every other text (Exo 2 SemiBold for the buttons), both in `assets/fonts` (SIL Open Font License, the license text is next to each `.ttf`). `Display::LoadFont` loads ASCII, Latin-1 and Latin Extended-A, so French and Turkish accents are drawn. `Display::UseFont` sets the font used by `Print` when no font is given. If a font file is missing, Raylib's default font is used.
+- **Text** is drawn with a small dark shadow, so it stays readable over the photos.
+- **Hints** (`DrawHint`): in a line like `ENTER to connect  -  ESC to quit`, the words in capitals are the keys and are drawn in yellow.
+- **Game background**: the photo of the level scrolls slowly to the left (`BACKGROUND_SCROLL`, 15 px/s), every other copy mirrored so the seam does not show, darkened, with the starfield in front.
+- **Menu**: the four country backgrounds change every 3 s (`MENU_SLIDE`) with a 1 s fade (`MENU_FADE`), darkened, with the stars in front. The IP field has a border with a gradient of the four player colours; the *CONNECT* button is a pill filled with that gradient, with white text in Exo 2 SemiBold. In a game, the background is the country of the level and does not change.
+
 ## Game data
 
 - `PLAYER_CREATION` gives the client its own `entity_id` and colour. Without it, no input is sent.
-- `INITIAL_STATE_BEGIN` / `ENTITY_SPAWN` x N / `INITIAL_STATE_END` are buffered and applied at once, only if the count matches (RFC §3.1). Otherwise the client sends `CONNECT_REQUEST` to the room again to get a fresh transfer.
+- `INITIAL_STATE_BEGIN` / `ENTITY_SPAWN` (one list of N records) / `INITIAL_STATE_END` are buffered and applied at once, only if the count matches (RFC §3.1). Otherwise the client sends `CONNECT_REQUEST` to the room again to get a fresh transfer.
+- `ENTITY_UPDATE`, `ENTITY_SPAWN` and `ENTITY_DESTROY` are lists: each handler walks all the records of the message. An `ENTITY_UPDATE` list can reach the handler in several calls if it needed several datagrams.
 - A destroyed `entity_id` is remembered for the whole game: a late `ENTITY_SPAWN` or `ENTITY_UPDATE` cannot bring it back.
 - `World` stores each entity in the ECS `Registry` with three components: `NetIdentity` (server id), `Transform` (position) and `Appearance` (kind, colour). The game screen draws them with `Registry::each`.
 
 ## Inputs
 
-Arrows move, SPACE fires. Keys are mapped to actions by the `BINDINGS` table in `ClientCore.hpp`:
+Arrows or WASD move (ZQSD on a French keyboard: Raylib reads the key position, not the letter), SPACE fires, F switches auto-fire. Keys are mapped to actions by the `BINDINGS` table in `ClientCore.hpp`:
 
 ```cpp
-constexpr std::array<Binding, 5> BINDINGS = {{
-    {Key::Up, Action::Up}, {Key::Down, Action::Down}, {Key::Left, Action::Left},
-    {Key::Right, Action::Right}, {Key::Space, Action::Fire},
+constexpr std::array<Binding, 9> BINDINGS = {{
+    {Key::Up, Action::Up}, {Key::Down, Action::Down}, {Key::Left, Action::Left}, {Key::Right, Action::Right},
+    {Key::W, Action::Up}, {Key::S, Action::Down}, {Key::A, Action::Left}, {Key::D, Action::Right},
+    {Key::Space, Action::Fire},
 }};
 ```
 
@@ -99,5 +118,5 @@ To add an action: add a value to `Action` (and to the RFC, §1), add a `Key` to 
 ## Limitations
 
 - Entities are drawn as coloured rectangles until sprites are added to `Display`.
-- No interpolation: positions jump at each `ENTITY_UPDATE` (20 Hz target).
+- No interpolation: positions jump at each `ENTITY_UPDATE` (20 Hz).
 - No sound yet.
